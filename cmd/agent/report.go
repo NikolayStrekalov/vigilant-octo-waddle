@@ -22,6 +22,7 @@ func sendStat(kind StatKind, name StatName, value string) {
 		fmt.Println("Post error:", err)
 		return
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("Wrong request code:", resp.StatusCode)
 	}
