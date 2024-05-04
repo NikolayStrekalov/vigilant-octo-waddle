@@ -10,6 +10,7 @@ import (
 )
 
 var serverBase = "http://localhost:8080/update/"
+var reportInterval = 10
 
 func sendStat(kind StatKind, name StatName, value string) {
 	path, err := url.JoinPath(serverBase, string(kind), string(name), value)
@@ -17,12 +18,14 @@ func sendStat(kind StatKind, name StatName, value string) {
 		fmt.Println("Fail to construct server url.", err)
 		return
 	}
-	resp, err := http.Post(path, "text/plain", nil)
+	resp, err := http.Post(path, "text/plain", http.NoBody)
 	if err != nil {
 		fmt.Println("Post error:", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("Wrong request code:", resp.StatusCode)
 	}
@@ -41,6 +44,6 @@ func reportStats(stats *runtime.MemStats) {
 		go sendStat(gaugeKind, statPollCount, getFormatedStat(reflect.ValueOf(PollCount)))
 		PollCount = 0
 		m.Unlock()
-		time.Sleep(10 * time.Second)
+		time.Sleep(time.Duration(reportInterval) * time.Second)
 	}
 }

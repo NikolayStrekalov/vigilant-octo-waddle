@@ -12,7 +12,7 @@ func collectStats(stats *runtime.MemStats) {
 	for {
 		m.Lock()
 		runtime.ReadMemStats(stats)
-		PollCount += 1
+		PollCount++
 		RandomValue = rand.Float64()
 		m.Unlock()
 		time.Sleep(time.Duration(pollInterval) * time.Second)

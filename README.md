@@ -4,9 +4,11 @@
 
 ## Начало работы
 
+0. Установить Go, Docker, jq.
 1. Склонируйте репозиторий в любую подходящую директорию на вашем компьютере.
-2. Запустите сервис `go run cmd/server/main.go`.
-3. Сохраняйте метрики `curl -v -X POST 'http://localhost:8080/update/count/someMetric/7'`
+Скопируйте `golangci-lint-pre-commit.sh` в `.git/hooks/pre-commit`.
+2. Запустите сервер `cd cmd/server/ && go run .`.
+3. Запустите клиент `cd cmd/agent/ && go run .`.
 
 ## Краткое описание сервиса
 

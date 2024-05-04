@@ -84,13 +84,23 @@ var RandomValue float64
 func getFormatedStat(stat reflect.Value) string {
 	switch stat.Kind() {
 	case reflect.Uint64:
-		return strconv.FormatUint(stat.Interface().(uint64), 10)
+		if v, ok := stat.Interface().(uint64); ok {
+			return strconv.FormatUint(v, 10)
+		}
 	case reflect.Uint32:
-		return strconv.FormatUint(uint64(stat.Interface().(uint32)), 10)
+		if v, ok := stat.Interface().(uint32); ok {
+			return strconv.FormatUint(uint64(v), 10)
+		}
 	case reflect.Int:
-		return strconv.Itoa(stat.Interface().(int))
+		if v, ok := stat.Interface().(int); ok {
+			return strconv.Itoa(v)
+		}
 	case reflect.Float64:
-		return strconv.FormatFloat(stat.Interface().(float64), 'f', -1, 64)
+		if v, ok := stat.Interface().(float64); ok {
+			return strconv.FormatFloat(v, 'f', -1, 64)
+		}
+	default:
+		return stat.String()
 	}
 	return stat.String()
 }

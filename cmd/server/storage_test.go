@@ -124,10 +124,8 @@ func TestMemStorage_IncrementCounter(t *testing.T) {
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
-			// fmt.Println(m.counter)
 			m.IncrementCounter(tt.args.name, tt.args.value)
 			assert.True(t, reflect.DeepEqual(m.gauge, tt.wantFields.gauge))
-			// fmt.Println(m.counter, tt.wantFields.counter)
 			assert.True(t, reflect.DeepEqual(m.counter, tt.wantFields.counter))
 		})
 	}

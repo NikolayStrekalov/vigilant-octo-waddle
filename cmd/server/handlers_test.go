@@ -25,12 +25,11 @@ func Test_updateHandler(t *testing.T) {
 		args args
 		want want
 	}{
-		// TODO: Add test cases.
 		{
 			name: "Test gauge update",
 			args: args{
 				res: httptest.NewRecorder(),
-				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/gauge/RandomValue/3.1415", nil),
+				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/gauge/RandomValue/3.1415", http.NoBody),
 			},
 			want: want{
 				code:        200,
@@ -42,7 +41,7 @@ func Test_updateHandler(t *testing.T) {
 			name: "Test counter update",
 			args: args{
 				res: httptest.NewRecorder(),
-				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/counter/PollCount/31415", nil),
+				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/counter/PollCount/31415", http.NoBody),
 			},
 			want: want{
 				code:        200,
@@ -54,7 +53,7 @@ func Test_updateHandler(t *testing.T) {
 			name: "Test fail slash end",
 			args: args{
 				res: httptest.NewRecorder(),
-				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/gauge/RandomValue/3.1415/", nil),
+				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/gauge/RandomValue/3.1415/", http.NoBody),
 			},
 			want: want{
 				code:        404,
@@ -66,7 +65,7 @@ func Test_updateHandler(t *testing.T) {
 			name: "Test fail unknown kind",
 			args: args{
 				res: httptest.NewRecorder(),
-				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/kind/RandomValue/3.1415", nil),
+				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/kind/RandomValue/3.1415", http.NoBody),
 			},
 			want: want{
 				code:        400,
@@ -78,7 +77,7 @@ func Test_updateHandler(t *testing.T) {
 			name: "Test fail wrong int",
 			args: args{
 				res: httptest.NewRecorder(),
-				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/counter/PollCount/3.1415", nil),
+				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/counter/PollCount/3.1415", http.NoBody),
 			},
 			want: want{
 				code:        400,
@@ -90,7 +89,7 @@ func Test_updateHandler(t *testing.T) {
 			name: "Test fail wrong float",
 			args: args{
 				res: httptest.NewRecorder(),
-				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/gauge/RandomValue/e3.1415", nil),
+				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/gauge/RandomValue/e3.1415", http.NoBody),
 			},
 			want: want{
 				code:        400,
@@ -106,7 +105,9 @@ func Test_updateHandler(t *testing.T) {
 			// проверяем код ответа
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			// получаем и проверяем тело запроса
-			defer res.Body.Close()
+			defer func() {
+				_ = res.Body.Close()
+			}()
 			resBody, err := io.ReadAll(res.Body)
 
 			require.NoError(t, err)
