@@ -1,11 +1,14 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 )
 
 type StorageOperations interface {
+	GetGauge(string, float64)
+	GetCounter(string, int64)
 	UpdateGauge(string, float64)
 	IncrementCounter(string, int64)
 }
@@ -22,6 +25,26 @@ var storage = MemStorage{
 	counter:    make(map[string]int64),
 	muxGauge:   &sync.RWMutex{},
 	muxCounter: &sync.RWMutex{},
+}
+
+var errNotFound = errors.New("not found")
+
+func (m MemStorage) getGauge(name string) (float64, error) {
+	m.muxGauge.RLock()
+	defer m.muxGauge.RUnlock()
+	if v, ok := m.gauge[name]; ok {
+		return v, nil
+	}
+	return 0, errNotFound
+}
+
+func (m MemStorage) getCounter(name string) (int64, error) {
+	m.muxCounter.RLock()
+	defer m.muxCounter.RUnlock()
+	if v, ok := m.counter[name]; ok {
+		return v, nil
+	}
+	return 0, errNotFound
 }
 
 func (m MemStorage) UpdateGauge(name string, value float64) {

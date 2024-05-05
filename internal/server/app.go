@@ -2,13 +2,15 @@ package server
 
 import (
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func Start() {
-	mux := http.NewServeMux()
-	mux.HandleFunc(`/update/`, updateHandler)
+	r := chi.NewRouter()
+	prepareRoutes(r)
 
-	err := http.ListenAndServe(`:8080`, mux)
+	err := http.ListenAndServe(`:8080`, r)
 	if err != nil {
 		panic(err)
 	}

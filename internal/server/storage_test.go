@@ -23,7 +23,6 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 		args       args
 		wantFields fields
 	}{
-		// TODO: Add test cases.
 		{
 			name: "test RandomValue 1",
 			fields: fields{
@@ -127,6 +126,126 @@ func TestMemStorage_IncrementCounter(t *testing.T) {
 			m.IncrementCounter(tt.args.name, tt.args.value)
 			assert.True(t, reflect.DeepEqual(m.gauge, tt.wantFields.gauge))
 			assert.True(t, reflect.DeepEqual(m.counter, tt.wantFields.counter))
+		})
+	}
+}
+
+func TestMemStorage_getGauge(t *testing.T) {
+	type fields struct {
+		gauge   map[string]float64
+		counter map[string]int64
+	}
+	type args struct {
+		name string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    float64
+		wantErr bool
+	}{
+		{
+			name: "Get gauge",
+			fields: fields{
+				gauge:   map[string]float64{"RandomValue": 0.31},
+				counter: map[string]int64{"PollCount": 30},
+			},
+			args: args{
+				name: "RandomValue",
+			},
+			want:    0.31,
+			wantErr: false,
+		},
+		{
+			name: "Miss gauge",
+			fields: fields{
+				gauge:   map[string]float64{"RandomValue": 0.31},
+				counter: map[string]int64{"PollCount": 30},
+			},
+			args: args{
+				name: "Random",
+			},
+			want:    0,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := MemStorage{
+				gauge:      tt.fields.gauge,
+				counter:    tt.fields.counter,
+				muxGauge:   &sync.RWMutex{},
+				muxCounter: &sync.RWMutex{},
+			}
+			got, err := m.getGauge(tt.args.name)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MemStorage.getGauge() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("MemStorage.getGauge() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMemStorage_getCounter(t *testing.T) {
+	type fields struct {
+		gauge   map[string]float64
+		counter map[string]int64
+	}
+	type args struct {
+		name string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    int64
+		wantErr bool
+	}{
+		{
+			name: "Get counter",
+			fields: fields{
+				gauge:   map[string]float64{"Value": 0.31},
+				counter: map[string]int64{"Poll": 30},
+			},
+			args: args{
+				name: "Poll",
+			},
+			want:    30,
+			wantErr: false,
+		},
+		{
+			name: "Miss counter",
+			fields: fields{
+				gauge:   map[string]float64{"Value": 0.31},
+				counter: map[string]int64{"Poll": 30},
+			},
+			args: args{
+				name: "Count",
+			},
+			want:    0,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := MemStorage{
+				gauge:      tt.fields.gauge,
+				counter:    tt.fields.counter,
+				muxGauge:   &sync.RWMutex{},
+				muxCounter: &sync.RWMutex{},
+			}
+			got, err := m.getCounter(tt.args.name)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MemStorage.getCounter() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("MemStorage.getCounter() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

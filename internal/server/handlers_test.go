@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -57,7 +58,7 @@ func Test_updateHandler(t *testing.T) {
 			},
 			want: want{
 				code:        404,
-				response:    "Use format http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>\n",
+				response:    "404 page not found\n",
 				contentType: "text/plain; charset=utf-8",
 			},
 		},
@@ -97,13 +98,148 @@ func Test_updateHandler(t *testing.T) {
 				contentType: "text/plain; charset=utf-8",
 			},
 		},
+		{
+			name: "Test fail no kind",
+			args: args{
+				res: httptest.NewRecorder(),
+				req: httptest.NewRequest(http.MethodPost, "http://localhost:8080/update/RandomValue/e3.1415", http.NoBody),
+			},
+			want: want{
+				code:        404,
+				response:    "404 page not found\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			updateHandler(tt.args.res, tt.args.req)
+			r := chi.NewRouter()
+			prepareRoutes(r)
+			r.ServeHTTP(tt.args.res, tt.args.req)
 			res := tt.args.res.Result()
+
 			// проверяем код ответа
 			assert.Equal(t, tt.want.code, res.StatusCode)
+
+			// получаем и проверяем тело запроса
+			defer func() {
+				_ = res.Body.Close()
+			}()
+			resBody, err := io.ReadAll(res.Body)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want.response, string(resBody))
+			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
+		})
+	}
+}
+
+func Test_metricHandler(t *testing.T) {
+	type args struct {
+		res *httptest.ResponseRecorder
+		req *http.Request
+	}
+	type want struct {
+		code        int
+		response    string
+		contentType string
+	}
+	tests := []struct {
+		name string
+		args args
+		want want
+	}{
+		{
+			name: "Test get gauge",
+			args: args{
+				res: httptest.NewRecorder(),
+				req: httptest.NewRequest(http.MethodGet, "http://localhost:8080/value/gauge/RandomValue", http.NoBody),
+			},
+			want: want{
+				code:        200,
+				response:    "0.31",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name: "Test get counter",
+			args: args{
+				res: httptest.NewRecorder(),
+				req: httptest.NewRequest(http.MethodGet, "http://localhost:8080/value/counter/PollCount", http.NoBody),
+			},
+			want: want{
+				code:        200,
+				response:    "-62",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name: "Test unknown kind",
+			args: args{
+				res: httptest.NewRecorder(),
+				req: httptest.NewRequest(http.MethodGet, "http://localhost:8080/value/bool/PollCount", http.NoBody),
+			},
+			want: want{
+				code:        404,
+				response:    "Wrong metric type!\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name: "Test wrong kind",
+			args: args{
+				res: httptest.NewRecorder(),
+				req: httptest.NewRequest(http.MethodGet, "http://localhost:8080/value/gauge/PollCount", http.NoBody),
+			},
+			want: want{
+				code:        404,
+				response:    "Metric not found!\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name: "Test gauge not found",
+			args: args{
+				res: httptest.NewRecorder(),
+				req: httptest.NewRequest(http.MethodGet, "http://localhost:8080/value/gauge/something", http.NoBody),
+			},
+			want: want{
+				code:        404,
+				response:    "Metric not found!\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name: "Test counter not found",
+			args: args{
+				res: httptest.NewRecorder(),
+				req: httptest.NewRequest(http.MethodGet, "http://localhost:8080/value/counter/something", http.NoBody),
+			},
+			want: want{
+				code:        404,
+				response:    "Metric not found!\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+	}
+	for _, tt := range tests {
+		storage.gauge = map[string]float64{
+			"RandomValue": 0.31,
+			"qwer":        3.1415,
+		}
+		storage.counter = map[string]int64{
+			"PollCount": -62,
+			"ewq":       9321,
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			r := chi.NewRouter()
+			prepareRoutes(r)
+			r.ServeHTTP(tt.args.res, tt.args.req)
+			res := tt.args.res.Result()
+
+			// проверяем код ответа
+			assert.Equal(t, tt.want.code, res.StatusCode)
+
 			// получаем и проверяем тело запроса
 			defer func() {
 				_ = res.Body.Close()
