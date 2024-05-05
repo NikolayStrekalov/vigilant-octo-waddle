@@ -8,42 +8,60 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+var indexPath = "/"
+var getMetricPath = "/value/{kind}/{name}"
+var updatePath = "/update/{kind}/{name}/{value}"
+var messageInternalServerError = "InternalServerError"
+
 func prepareRoutes(r *chi.Mux) {
+	r.Get(indexPath, indexHandler)
 	r.Get(getMetricPath, metricHandler)
 	r.Post(updatePath, updateHandler)
 }
 
-var getMetricPath = "/value/{kind}/{name}"
+func indexHandler(res http.ResponseWriter, req *http.Request) {
+	counters := storage.GetCounterList()
+	gauges := storage.GetGaugeList()
+	html, err := renderIndexPage(counters, gauges)
+	if err != nil {
+		http.Error(res, messageInternalServerError, http.StatusInternalServerError)
+		return
+	}
+	res.Header().Set("Content-Type", "text/html")
+	res.WriteHeader(http.StatusOK)
+
+	if _, err := html.WriteTo(res); err != nil {
+		http.Error(res, messageInternalServerError, http.StatusInternalServerError)
+	}
+}
 
 func metricHandler(res http.ResponseWriter, req *http.Request) {
 	kind := chi.URLParam(req, "kind")
 	name := chi.URLParam(req, "name")
 	switch kind {
 	case "gauge":
-		v, err := storage.getGauge(name)
+		v, err := storage.GetGauge(name)
 		if err != nil {
 			http.Error(res, "Metric not found!", http.StatusNotFound)
 			return
 		}
 		if _, err := io.WriteString(res, strconv.FormatFloat(v, 'f', -1, 64)); err != nil {
-			http.Error(res, "InternalServerError", http.StatusInternalServerError)
+			http.Error(res, messageInternalServerError, http.StatusInternalServerError)
 		}
 	case "counter":
-		v, err := storage.getCounter(name)
+		v, err := storage.GetCounter(name)
 		if err != nil {
 			http.Error(res, "Metric not found!", http.StatusNotFound)
 			return
 		}
 		if _, err := io.WriteString(res, strconv.FormatInt(v, 10)); err != nil {
-			http.Error(res, "InternalServerError", http.StatusInternalServerError)
+			http.Error(res, messageInternalServerError, http.StatusInternalServerError)
 		}
 	default:
 		http.Error(res, "Wrong metric type!", http.StatusNotFound)
 		return
 	}
 }
-
-var updatePath = "/update/{kind}/{name}/{value}"
 
 func updateHandler(res http.ResponseWriter, req *http.Request) {
 	kind := chi.URLParam(req, "kind")
@@ -66,5 +84,5 @@ func updateHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "Wrong metric type!", http.StatusBadRequest)
 		return
 	}
-	storage.Log()
+	// storage.Log()
 }

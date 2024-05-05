@@ -252,3 +252,36 @@ func Test_metricHandler(t *testing.T) {
 		})
 	}
 }
+
+func Test_indexHandler(t *testing.T) {
+	args := struct {
+		res *httptest.ResponseRecorder
+		req *http.Request
+	}{
+		res: httptest.NewRecorder(),
+		req: httptest.NewRequest(http.MethodGet, "http://localhost:8080/", http.NoBody),
+	}
+	want := struct {
+		code        int
+		contentType string
+	}{
+		code:        200,
+		contentType: "text/html",
+	}
+
+	r := chi.NewRouter()
+	prepareRoutes(r)
+	r.ServeHTTP(args.res, args.req)
+	res := args.res.Result()
+
+	// проверяем код ответа
+	assert.Equal(t, want.code, res.StatusCode)
+
+	defer func() {
+		_ = res.Body.Close()
+	}()
+	_, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	// проверяем Content-Type
+	assert.Equal(t, want.contentType, res.Header.Get("Content-Type"))
+}

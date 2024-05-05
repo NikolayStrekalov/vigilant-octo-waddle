@@ -7,6 +7,8 @@ import (
 )
 
 type StorageOperations interface {
+	GetGaugeList() []GaugeListItem
+	GetCounterList() []CounterListItem
 	GetGauge(string, float64)
 	GetCounter(string, int64)
 	UpdateGauge(string, float64)
@@ -29,7 +31,37 @@ var storage = MemStorage{
 
 var errNotFound = errors.New("not found")
 
-func (m MemStorage) getGauge(name string) (float64, error) {
+type GaugeListItem struct {
+	Name  string
+	Value float64
+}
+
+func (m MemStorage) GetGaugeList() []GaugeListItem {
+	m.muxGauge.RLock()
+	defer m.muxGauge.RUnlock()
+	items := make([]GaugeListItem, 0, len(m.gauge))
+	for name, value := range m.gauge {
+		items = append(items, GaugeListItem{Name: name, Value: value})
+	}
+	return items
+}
+
+type CounterListItem struct {
+	Name  string
+	Value int64
+}
+
+func (m MemStorage) GetCounterList() []CounterListItem {
+	m.muxCounter.RLock()
+	defer m.muxCounter.RUnlock()
+	items := make([]CounterListItem, 0, len(m.counter))
+	for name, value := range m.counter {
+		items = append(items, CounterListItem{Name: name, Value: value})
+	}
+	return items
+}
+
+func (m MemStorage) GetGauge(name string) (float64, error) {
 	m.muxGauge.RLock()
 	defer m.muxGauge.RUnlock()
 	if v, ok := m.gauge[name]; ok {
@@ -38,7 +70,7 @@ func (m MemStorage) getGauge(name string) (float64, error) {
 	return 0, errNotFound
 }
 
-func (m MemStorage) getCounter(name string) (int64, error) {
+func (m MemStorage) GetCounter(name string) (int64, error) {
 	m.muxCounter.RLock()
 	defer m.muxCounter.RUnlock()
 	if v, ok := m.counter[name]; ok {
