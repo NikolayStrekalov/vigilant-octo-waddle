@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-var pollInterval = 2
-
 func collectStats(stats *runtime.MemStats) {
 	for {
 		m.Lock()
@@ -15,6 +13,6 @@ func collectStats(stats *runtime.MemStats) {
 		PollCount++
 		RandomValue = rand.Float64()
 		m.Unlock()
-		time.Sleep(time.Duration(pollInterval) * time.Second)
+		time.Sleep(time.Duration(Config.PollInterval) * time.Second)
 	}
 }

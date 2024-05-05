@@ -9,11 +9,10 @@ import (
 	"time"
 )
 
-var serverBase = "http://localhost:8080/update/"
-var reportInterval = 10
+var ReportBaseURL = "http://localhost:8080/update/"
 
 func sendStat(kind StatKind, name StatName, value string) {
-	path, err := url.JoinPath(serverBase, string(kind), string(name), value)
+	path, err := url.JoinPath(ReportBaseURL, string(kind), string(name), value)
 	if err != nil {
 		fmt.Println("Fail to construct server url.", err)
 		return
@@ -44,6 +43,6 @@ func reportStats(stats *runtime.MemStats) {
 		go sendStat(counterKind, statPollCount, getFormatedStat(reflect.ValueOf(PollCount)))
 		PollCount = 0
 		m.Unlock()
-		time.Sleep(time.Duration(reportInterval) * time.Second)
+		time.Sleep(time.Duration(Config.ReportInterval) * time.Second)
 	}
 }

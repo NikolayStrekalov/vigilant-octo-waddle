@@ -45,7 +45,7 @@ func Test_sendStat(t *testing.T) {
 		requestPath = r.URL.Path
 	}))
 	defer ts.Close()
-	serverBase = ts.URL
+	ReportBaseURL = ts.URL
 	for _, tt := range tests {
 		sendStat(tt.args.kind, tt.args.name, tt.args.value)
 		assert.Equal(t, requestPath, tt.wantPath)
