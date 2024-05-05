@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"net/http"
@@ -46,5 +46,5 @@ func updateHandler(res http.ResponseWriter, req *http.Request) {
 		)
 		return
 	}
-	// storage.Log()
+	storage.Log()
 }

@@ -1,15 +1,7 @@
 package main
 
-import (
-	"net/http"
-)
+import "github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/server"
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc(`/update/`, updateHandler)
-
-	err := http.ListenAndServe(`:8080`, mux)
-	if err != nil {
-		panic(err)
-	}
+	server.Start()
 }

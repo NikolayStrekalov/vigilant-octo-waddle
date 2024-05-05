@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"fmt"
@@ -41,7 +41,7 @@ func reportStats(stats *runtime.MemStats) {
 			go sendStat(gaugeKind, statName, getFormatedStat(f))
 		}
 		go sendStat(gaugeKind, statRandomValue, getFormatedStat(reflect.ValueOf(RandomValue)))
-		go sendStat(gaugeKind, statPollCount, getFormatedStat(reflect.ValueOf(PollCount)))
+		go sendStat(counterKind, statPollCount, getFormatedStat(reflect.ValueOf(PollCount)))
 		PollCount = 0
 		m.Unlock()
 		time.Sleep(time.Duration(reportInterval) * time.Second)

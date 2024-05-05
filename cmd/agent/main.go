@@ -1,12 +1,7 @@
 package main
 
-import (
-	"runtime"
-)
+import "github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/agent"
 
 func main() {
-	RuntimeStats = runtime.MemStats{}
-	go collectStats(&RuntimeStats)
-	go reportStats(&RuntimeStats)
-	runtime.Goexit()
+	agent.Start()
 }
