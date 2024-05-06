@@ -77,7 +77,7 @@ var runtimeStatList = [...]StatName{
 	statTotalAlloc,
 }
 
-var RuntimeStats runtime.MemStats
+var RuntimeStats = runtime.MemStats{}
 var PollCount int
 var RandomValue float64
 

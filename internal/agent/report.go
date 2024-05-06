@@ -30,11 +30,11 @@ func sendStat(kind StatKind, name StatName, value string) {
 	}
 }
 
-func reportStats(stats *runtime.MemStats) {
+func reportStats() {
 	for {
 		m.Lock()
-		runtime.ReadMemStats(stats)
-		r := reflect.ValueOf(*stats)
+		runtime.ReadMemStats(&RuntimeStats)
+		r := reflect.ValueOf(RuntimeStats)
 		for _, statName := range runtimeStatList {
 			f := reflect.Indirect(r).FieldByName(string(statName))
 			go sendStat(gaugeKind, statName, getFormatedStat(f))

@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-func collectStats(stats *runtime.MemStats) {
+func collectStats() {
 	for {
 		m.Lock()
-		runtime.ReadMemStats(stats)
+		runtime.ReadMemStats(&RuntimeStats)
 		PollCount++
 		RandomValue = rand.Float64()
 		m.Unlock()

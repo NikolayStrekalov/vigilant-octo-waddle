@@ -20,8 +20,7 @@ func Start() {
 	}
 	ReportBaseURL = fmt.Sprintf("http://%s/update/", Config.ServerAddress)
 
-	RuntimeStats = runtime.MemStats{}
-	go collectStats(&RuntimeStats)
-	go reportStats(&RuntimeStats)
+	go collectStats()
+	go reportStats()
 	runtime.Goexit()
 }
