@@ -8,11 +8,12 @@ import (
 
 func collectStats() {
 	for {
-		m.Lock()
+		statMutex.Lock()
 		runtime.ReadMemStats(&RuntimeStats)
 		PollCount++
 		RandomValue = rand.Float64()
-		m.Unlock()
+		statMutex.Unlock()
+
 		time.Sleep(time.Duration(Config.PollInterval) * time.Second)
 	}
 }

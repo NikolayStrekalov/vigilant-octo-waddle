@@ -32,7 +32,7 @@ func sendStat(kind StatKind, name StatName, value string) {
 
 func reportStats() {
 	for {
-		m.Lock()
+		statMutex.Lock()
 		runtime.ReadMemStats(&RuntimeStats)
 		r := reflect.ValueOf(RuntimeStats)
 		for _, statName := range runtimeStatList {
@@ -42,7 +42,8 @@ func reportStats() {
 		go sendStat(gaugeKind, statRandomValue, getFormatedStat(reflect.ValueOf(RandomValue)))
 		go sendStat(counterKind, statPollCount, getFormatedStat(reflect.ValueOf(PollCount)))
 		PollCount = 0
-		m.Unlock()
+		statMutex.Unlock()
+
 		time.Sleep(time.Duration(Config.ReportInterval) * time.Second)
 	}
 }

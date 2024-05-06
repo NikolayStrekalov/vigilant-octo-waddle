@@ -105,4 +105,4 @@ func getFormatedStat(stat reflect.Value) string {
 	return stat.String()
 }
 
-var m = &sync.Mutex{}
+var statMutex = &sync.Mutex{}
