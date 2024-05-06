@@ -22,6 +22,10 @@ func Start() {
 		os.Exit(exitCodeTooManyArgs)
 	}
 
+	if envAddress := os.Getenv("ADDRESS"); envAddress != "" {
+		address = envAddress
+	}
+
 	err := http.ListenAndServe(address, r)
 	if err != nil {
 		panic(err)
