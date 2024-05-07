@@ -8,10 +8,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-var indexPath = "/"
-var getMetricPath = "/value/{kind}/{name}"
-var updatePath = "/update/{kind}/{name}/{value}"
-var messageInternalServerError = "InternalServerError"
+const (
+    indexPath = "/"
+    getMetricPath = "/value/{kind}/{name}"
+    updatePath = "/update/{kind}/{name}/{value}"
+    messageInternalServerError = "InternalServerError"
+)
 
 func prepareRoutes(r *chi.Mux) {
 	r.Get(indexPath, indexHandler)
