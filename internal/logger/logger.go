@@ -41,7 +41,10 @@ func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	// записываем ответ, используя оригинальный http.ResponseWriter
 	size, err := r.ResponseWriter.Write(b)
 	r.responseData.size += size // захватываем размер
-	return size, fmt.Errorf("response writing error while logging: %w", err)
+	if err != nil {
+		return size, fmt.Errorf("response writing error while logging: %w", err)
+	}
+	return size, nil
 }
 
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
