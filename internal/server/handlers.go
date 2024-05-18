@@ -9,10 +9,10 @@ import (
 )
 
 const (
-    indexPath = "/"
-    getMetricPath = "/value/{kind}/{name}"
-    updatePath = "/update/{kind}/{name}/{value}"
-    messageInternalServerError = "InternalServerError"
+	indexPath                  = "/"
+	getMetricPath              = "/value/{kind}/{name}"
+	updatePath                 = "/update/{kind}/{name}/{value}"
+	messageInternalServerError = "InternalServerError"
 )
 
 func prepareRoutes(r *chi.Mux) {

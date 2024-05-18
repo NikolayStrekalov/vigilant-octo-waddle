@@ -4,9 +4,9 @@
 
 ## Начало работы
 
-0. Установить Go, Docker, jq.
+0. Установить Go, Docker, jq, lefthook.
 1. Склонируйте репозиторий в любую подходящую директорию на вашем компьютере.
-Скопируйте `golangci-lint-pre-commit.sh` в `.git/hooks/pre-commit`.
+Синхронизируйте lefthook `lefthook install`.
 2. Запустите сервер `cd cmd/server/ && go run .`.
 3. Запустите клиент `cd cmd/agent/ && go run .`.
 
