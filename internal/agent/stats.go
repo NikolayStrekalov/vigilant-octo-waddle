@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -80,6 +81,31 @@ var runtimeStatList = [...]StatName{
 var RuntimeStats = runtime.MemStats{}
 var PollCount int
 var RandomValue float64
+var errStatValueConversion = errors.New("can not convert to float64")
+
+func getFloatStat(stat reflect.Value) (float64, error) {
+	switch stat.Kind() {
+	case reflect.Uint64:
+		if v, ok := stat.Interface().(uint64); ok {
+			return float64(v), nil
+		}
+	case reflect.Uint32:
+		if v, ok := stat.Interface().(uint32); ok {
+			return float64(v), nil
+		}
+	case reflect.Int:
+		if v, ok := stat.Interface().(int); ok {
+			return float64(v), nil
+		}
+	case reflect.Float64:
+		if v, ok := stat.Interface().(float64); ok {
+			return v, nil
+		}
+	default:
+		return 0, errStatValueConversion
+	}
+	return 0, errStatValueConversion
+}
 
 func getFormatedStat(stat reflect.Value) string {
 	switch stat.Kind() {

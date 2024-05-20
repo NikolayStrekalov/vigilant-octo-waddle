@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_updateHandler(t *testing.T) {
+func Test_updateMetricHandler(t *testing.T) {
 	type args struct {
 		res *httptest.ResponseRecorder
 		req *http.Request

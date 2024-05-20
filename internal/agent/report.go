@@ -1,12 +1,17 @@
 package agent
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"reflect"
 	"runtime"
 	"time"
+
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
+	"github.com/mailru/easyjson"
 )
 
 var ReportBaseURL = "http://localhost:8080/update/"
@@ -30,17 +35,64 @@ func sendStat(kind StatKind, name StatName, value string) {
 	}
 }
 
+func sendStatJSON(m *models.Metrics) {
+	data, err := easyjson.Marshal(m)
+	if err != nil {
+		fmt.Println("Fail to serialize metric.", err)
+		return
+	}
+	resp, err := http.Post(ReportBaseURL, "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		fmt.Println("Post error:", err)
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != http.StatusOK {
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Response read error:", err)
+			return
+		}
+		fmt.Println(ReportBaseURL, "Wrong request code:", resp.StatusCode, string(data))
+	}
+}
+
 func reportStats() {
+	var err error
 	for {
 		statMutex.Lock()
 		runtime.ReadMemStats(&RuntimeStats)
 		r := reflect.ValueOf(RuntimeStats)
 		for _, statName := range runtimeStatList {
 			f := reflect.Indirect(r).FieldByName(string(statName))
-			go sendStat(gaugeKind, statName, getFormatedStat(f))
+
+			runtimeMetrics := models.Metrics{
+				ID:    string(statName),
+				MType: "gauge",
+				Value: new(float64),
+			}
+			if *runtimeMetrics.Value, err = getFloatStat(f); err != nil {
+				fmt.Println(err)
+			}
+
+			go sendStatJSON(&runtimeMetrics)
 		}
-		go sendStat(gaugeKind, statRandomValue, getFormatedStat(reflect.ValueOf(RandomValue)))
-		go sendStat(counterKind, statPollCount, getFormatedStat(reflect.ValueOf(PollCount)))
+		randomMetrics := models.Metrics{
+			ID:    string(statRandomValue),
+			MType: "gauge",
+			Value: new(float64),
+		}
+		*randomMetrics.Value = RandomValue
+		go sendStatJSON(&randomMetrics)
+		pollMetrics := models.Metrics{
+			ID:    string(statRandomValue),
+			MType: "counter",
+			Delta: new(int64),
+		}
+		*pollMetrics.Delta = int64(PollCount)
+		go sendStatJSON(&pollMetrics)
 		PollCount = 0
 		statMutex.Unlock()
 
