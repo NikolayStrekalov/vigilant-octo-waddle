@@ -72,6 +72,7 @@ var runtimeStatList = [...]StatName{
 	statNumForcedGC,
 	statNumGC,
 	statOtherSys,
+	statPauseTotalNs,
 	statStackInuse,
 	statStackSys,
 	statSys,

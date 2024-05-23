@@ -87,7 +87,7 @@ func reportStats() {
 		*randomMetrics.Value = RandomValue
 		go sendStatJSON(&randomMetrics)
 		pollMetrics := models.Metrics{
-			ID:    string(statRandomValue),
+			ID:    string(statPollCount),
 			MType: "counter",
 			Delta: new(int64),
 		}
