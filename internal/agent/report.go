@@ -41,7 +41,20 @@ func sendStatJSON(m *models.Metrics) {
 		fmt.Println("Fail to serialize metric.", err)
 		return
 	}
-	resp, err := http.Post(ReportBaseURL, "application/json", bytes.NewBuffer(data))
+	gzData, err := Compress(data)
+	if err != nil {
+		fmt.Println("Compress error:", err)
+		return
+	}
+	req, err := http.NewRequest(http.MethodPost, ReportBaseURL, bytes.NewReader(gzData))
+	if err != nil {
+		fmt.Println("Create request error:", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Println("Post error:", err)
 		return

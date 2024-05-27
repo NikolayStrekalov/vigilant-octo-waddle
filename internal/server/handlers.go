@@ -154,6 +154,7 @@ func updateMetricJSONHandler(res http.ResponseWriter, req *http.Request) {
 	}
 	m := models.Metrics{}
 	data, err := io.ReadAll(req.Body)
+	defer func() { _ = req.Body.Close() }()
 	if err != nil {
 		http.Error(res, messageInternalServerError, http.StatusInternalServerError)
 		return

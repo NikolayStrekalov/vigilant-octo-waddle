@@ -7,7 +7,7 @@ import (
 	"runtime"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
-	"github.com/go-chi/chi/v5"
+	chi "github.com/go-chi/chi/v5"
 )
 
 var address string
@@ -21,9 +21,7 @@ func Start() {
 		}
 	}()
 
-	r := chi.NewRouter()
-	r.Use(logger.RequestLogger)
-	prepareRoutes(r)
+	r := appRouter()
 
 	flag.StringVar(&address, "a", "localhost:8080", "Эндпоинт сервера HOST:PORT")
 	flag.Parse()
@@ -41,4 +39,12 @@ func Start() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func appRouter() *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(logger.RequestLogger)
+	r.Use(gzipMiddleware)
+	prepareRoutes(r)
+	return r
 }
