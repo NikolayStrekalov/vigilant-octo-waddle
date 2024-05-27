@@ -79,7 +79,6 @@ func (c compressReader) Read(p []byte) (int, error) {
 		return n, io.EOF
 	}
 	if err != nil {
-		fmt.Println("\n\n", err)
 		return n, fmt.Errorf("compress read error: %w", err)
 	}
 	return n, nil
