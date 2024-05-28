@@ -98,7 +98,9 @@ func updateMetricHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, wrongMetricType, http.StatusBadRequest)
 		return
 	}
-	// storage.Log()
+	if ServerConfig.IsSyncDump() {
+		storage.Dump(ServerConfig.FileStoragePath)
+	}
 }
 
 func metricJSONHandler(res http.ResponseWriter, req *http.Request) {
@@ -191,6 +193,9 @@ func updateMetricJSONHandler(res http.ResponseWriter, req *http.Request) {
 	default:
 		http.Error(res, wrongMetricType, http.StatusBadRequest)
 		return
+	}
+	if ServerConfig.IsSyncDump() {
+		storage.Dump(ServerConfig.FileStoragePath)
 	}
 	rawBytes, err := easyjson.Marshal(&m)
 	if err != nil {

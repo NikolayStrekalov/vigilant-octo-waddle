@@ -23,6 +23,10 @@ func InitLog() *zap.SugaredLogger {
 	return &log
 }
 
+func Info(args ...interface{}) {
+	log.Infoln(args)
+}
+
 type (
 	// Берём структуру для хранения сведений об ответе.
 	responseData struct {

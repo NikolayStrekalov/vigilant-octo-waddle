@@ -57,14 +57,14 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
 			m.UpdateGauge(tt.args.name, tt.args.value)
-			assert.True(t, reflect.DeepEqual(m.gauge, tt.wantFields.gauge))
-			assert.True(t, reflect.DeepEqual(m.counter, tt.wantFields.counter))
+			assert.True(t, reflect.DeepEqual(m.Gauge, tt.wantFields.gauge))
+			assert.True(t, reflect.DeepEqual(m.Counter, tt.wantFields.counter))
 		})
 	}
 }
@@ -118,14 +118,14 @@ func TestMemStorage_IncrementCounter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
 			m.IncrementCounter(tt.args.name, tt.args.value)
-			assert.True(t, reflect.DeepEqual(m.gauge, tt.wantFields.gauge))
-			assert.True(t, reflect.DeepEqual(m.counter, tt.wantFields.counter))
+			assert.True(t, reflect.DeepEqual(m.Gauge, tt.wantFields.gauge))
+			assert.True(t, reflect.DeepEqual(m.Counter, tt.wantFields.counter))
 		})
 	}
 }
@@ -173,8 +173,8 @@ func TestMemStorage_GetGauge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
@@ -233,8 +233,8 @@ func TestMemStorage_GetCounter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
@@ -288,8 +288,8 @@ func TestMemStorage_GetGaugeList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
@@ -337,8 +337,8 @@ func TestMemStorage_GetCounterList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}

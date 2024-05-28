@@ -223,11 +223,11 @@ func Test_metricHandler(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		storage.gauge = map[string]float64{
+		storage.Gauge = map[string]float64{
 			"RandomValue": 0.31,
 			"qwer":        3.1415,
 		}
-		storage.counter = map[string]int64{
+		storage.Counter = map[string]int64{
 			"PollCount": -62,
 			"ewq":       9321,
 		}
