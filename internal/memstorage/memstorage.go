@@ -123,7 +123,7 @@ func (m MemStorage) Dump() {
 	}
 }
 
-func (m MemStorage) Restore() {
+func (m *MemStorage) Restore() {
 	if m.dumpFile == "" {
 		return
 	}
@@ -139,7 +139,7 @@ func (m MemStorage) Restore() {
 		logger.Info("Error reading dump.", err)
 		return
 	}
-	err = easyjson.Unmarshal(data, &m)
+	err = easyjson.Unmarshal(data, m)
 	if err != nil {
 		logger.Info("Error unmarshalling dump.", err)
 		return

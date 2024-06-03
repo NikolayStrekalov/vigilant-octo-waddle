@@ -351,7 +351,7 @@ func TestMemStorage_GetCounterList(t *testing.T) {
 }
 
 func TestMemStorageSync(t *testing.T) {
-	f, err := os.CreateTemp("", "tmpfile-") // in Go version older than 1.17 you can use ioutil.TempFile
+	f, err := os.CreateTemp("", "tmpfile-")
 	if err != nil {
 		t.Errorf("create temp file error: %v", err)
 		return
@@ -371,4 +371,27 @@ func TestMemStorageSync(t *testing.T) {
 		return
 	}
 	assert.Equal(t, `{"Gauge":{"any":3.1415},"Counter":{"some":10}}`, string(data))
+}
+
+func TestMemStorageRestore(t *testing.T) {
+	f, err := os.CreateTemp("", "tmpfile-")
+	if err != nil {
+		t.Errorf("create temp file error: %v", err)
+		return
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
+	err = os.WriteFile(f.Name(), []byte(`{"Gauge":{"any":3.1415},"Counter":{"some":10}}`), 0o600)
+	if err != nil {
+		t.Errorf("write temp file error: %v", err)
+		return
+	}
+	storage := NewMemStorage(false, f.Name())
+	storage.Restore()
+	assert.Equal(t, 3.1415, storage.Gauge["any"])
+	assert.Equal(t, int64(10), storage.Counter["some"])
 }
