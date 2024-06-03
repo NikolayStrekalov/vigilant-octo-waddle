@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
@@ -24,10 +23,7 @@ func Start() {
 	// Инициализируем логирование
 	lgr := logger.InitLog()
 	defer func() {
-		if err := lgr.Sync(); err != nil && !errors.Is(err, syscall.ENOTTY) {
-			lgr.Infoln("lgr err", err)
-			panic(err)
-		}
+		_ = lgr.Sync()
 	}()
 
 	// Настраиваем приложение
