@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
@@ -20,7 +22,8 @@ func Start() {
 	// Инициализируем логирование
 	lgr := logger.InitLog()
 	defer func() {
-		if err := lgr.Sync(); err != nil {
+		if err := lgr.Sync(); err != nil && !errors.Is(err, syscall.ENOTTY) {
+			lgr.Infoln("lgr err", err)
 			panic(err)
 		}
 	}()
@@ -40,7 +43,9 @@ func Start() {
 	if ServerConfig.DumpEnabled() && ServerConfig.StoreInterval > 0 {
 		go periodicDump()
 	}
+
 	// При выходе сохраняем данные
+	var server *http.Server
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
@@ -48,12 +53,16 @@ func Start() {
 		if ServerConfig.FileStoragePath != "" {
 			storage.Dump(ServerConfig.FileStoragePath)
 		}
-		os.Exit(0)
+		err := server.Shutdown(context.Background())
+		if err != nil {
+			panic(err)
+		}
 	}()
 
 	// Запускаем сервер
-	err := http.ListenAndServe(ServerConfig.Address, r)
-	if err != nil {
+	server = &http.Server{Addr: ServerConfig.Address, Handler: r}
+	err := server.ListenAndServe()
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
 }
