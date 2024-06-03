@@ -1,6 +1,7 @@
-package server
+package memstorage
 
 import (
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -61,6 +62,7 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
+				sync:       false,
 			}
 			m.UpdateGauge(tt.args.name, tt.args.value)
 			assert.True(t, reflect.DeepEqual(m.Gauge, tt.wantFields.gauge))
@@ -346,4 +348,27 @@ func TestMemStorage_GetCounterList(t *testing.T) {
 			assert.ElementsMatch(t, tt.want, got)
 		})
 	}
+}
+
+func TestMemStorageSync(t *testing.T) {
+	f, err := os.CreateTemp("", "tmpfile-") // in Go version older than 1.17 you can use ioutil.TempFile
+	if err != nil {
+		t.Errorf("create temp file error: %v", err)
+		return
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
+	storage := NewMemStorage(true, f.Name())
+	storage.IncrementCounter("some", 10)
+	storage.UpdateGauge("any", 3.1415)
+	data, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Errorf("reading temp file error: %v", err)
+		return
+	}
+	assert.Equal(t, `{"Gauge":{"any":3.1415},"Counter":{"some":10}}`, string(data))
 }

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/memstorage"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,6 +41,7 @@ func Compress(data []byte) []byte {
 func Test_appRouter(t *testing.T) {
 	_ = logger.InitLog()
 	r := appRouter()
+	Storage = memstorage.NewMemStorage(false, "")
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 	baseURL := ts.URL

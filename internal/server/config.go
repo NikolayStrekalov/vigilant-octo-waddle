@@ -1,6 +1,7 @@
 package server
 
 type Config struct {
+	Storage         StorageOperations
 	Address         string
 	FileStoragePath string
 	StoreInterval   int

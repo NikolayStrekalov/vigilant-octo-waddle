@@ -34,8 +34,8 @@ func prepareRoutes(r *chi.Mux) {
 }
 
 func indexHandler(res http.ResponseWriter, req *http.Request) {
-	counters := storage.GetCounterList()
-	gauges := storage.GetGaugeList()
+	counters := Storage.GetCounterList()
+	gauges := Storage.GetGaugeList()
 	html, err := renderIndexPage(counters, gauges)
 	if err != nil {
 		http.Error(res, messageInternalServerError, http.StatusInternalServerError)
@@ -54,7 +54,7 @@ func metricHandler(res http.ResponseWriter, req *http.Request) {
 	name := chi.URLParam(req, "name")
 	switch kind {
 	case gaugeKind:
-		v, err := storage.GetGauge(name)
+		v, err := Storage.GetGauge(name)
 		if err != nil {
 			http.Error(res, metricNotFound, http.StatusNotFound)
 			return
@@ -63,7 +63,7 @@ func metricHandler(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, messageInternalServerError, http.StatusInternalServerError)
 		}
 	case counterKind:
-		v, err := storage.GetCounter(name)
+		v, err := Storage.GetCounter(name)
 		if err != nil {
 			http.Error(res, metricNotFound, http.StatusNotFound)
 			return
@@ -86,20 +86,17 @@ func updateMetricHandler(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, "Wrong float value!", http.StatusBadRequest)
 			return
 		}
-		storage.UpdateGauge(chi.URLParam(req, "name"), val)
+		Storage.UpdateGauge(chi.URLParam(req, "name"), val)
 	case counterKind:
 		val, err := strconv.ParseInt(chi.URLParam(req, "value"), 10, 64)
 		if err != nil {
 			http.Error(res, "Wrong integer value!", http.StatusBadRequest)
 			return
 		}
-		storage.IncrementCounter(chi.URLParam(req, "name"), val)
+		Storage.IncrementCounter(chi.URLParam(req, "name"), val)
 	default:
 		http.Error(res, wrongMetricType, http.StatusBadRequest)
 		return
-	}
-	if ServerConfig.IsSyncDump() {
-		storage.Dump(ServerConfig.FileStoragePath)
 	}
 }
 
@@ -120,14 +117,14 @@ func metricJSONHandler(res http.ResponseWriter, req *http.Request) {
 	}
 	switch m.MType {
 	case counterKind:
-		v, err := storage.GetCounter(m.ID)
+		v, err := Storage.GetCounter(m.ID)
 		if err != nil {
 			http.Error(res, metricNotFound, http.StatusNotFound)
 			return
 		}
 		m.Delta = &v
 	case gaugeKind:
-		v, err := storage.GetGauge(m.ID)
+		v, err := Storage.GetGauge(m.ID)
 		if err != nil {
 			http.Error(res, metricNotFound, http.StatusNotFound)
 			return
@@ -171,8 +168,8 @@ func updateMetricJSONHandler(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, "Provide delta field for increment!", http.StatusBadRequest)
 			return
 		}
-		storage.IncrementCounter(m.ID, *m.Delta)
-		v, err := storage.GetCounter(m.ID)
+		Storage.IncrementCounter(m.ID, *m.Delta)
+		v, err := Storage.GetCounter(m.ID)
 		if err != nil {
 			http.Error(res, metricNotFound, http.StatusNotFound)
 			return
@@ -183,8 +180,8 @@ func updateMetricJSONHandler(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, "Provide value field for update!", http.StatusBadRequest)
 			return
 		}
-		storage.UpdateGauge(m.ID, *m.Value)
-		v, err := storage.GetGauge(m.ID)
+		Storage.UpdateGauge(m.ID, *m.Value)
+		v, err := Storage.GetGauge(m.ID)
 		if err != nil {
 			http.Error(res, metricNotFound, http.StatusNotFound)
 			return
@@ -193,9 +190,6 @@ func updateMetricJSONHandler(res http.ResponseWriter, req *http.Request) {
 	default:
 		http.Error(res, wrongMetricType, http.StatusBadRequest)
 		return
-	}
-	if ServerConfig.IsSyncDump() {
-		storage.Dump(ServerConfig.FileStoragePath)
 	}
 	rawBytes, err := easyjson.Marshal(&m)
 	if err != nil {

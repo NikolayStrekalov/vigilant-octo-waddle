@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/memstorage"
+
 	chi "github.com/go-chi/chi/v5"
 )
 
@@ -34,10 +36,11 @@ func Start() {
 		flag.PrintDefaults()
 		panic(err)
 	}
+	Storage = memstorage.NewMemStorage(ServerConfig.IsSyncDump(), ServerConfig.FileStoragePath)
 
 	// Восстанавливаем данные
 	if ServerConfig.RestoreStore {
-		storage.Restore(ServerConfig.FileStoragePath)
+		Storage.Restore()
 	}
 	// Периодически сохраняем данные
 	if ServerConfig.DumpEnabled() && ServerConfig.StoreInterval > 0 {
@@ -50,9 +53,7 @@ func Start() {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
-		if ServerConfig.FileStoragePath != "" {
-			storage.Dump(ServerConfig.FileStoragePath)
-		}
+		Storage.Dump()
 		err := server.Shutdown(context.Background())
 		if err != nil {
 			panic(err)
@@ -126,6 +127,6 @@ func fillConfig() error {
 func periodicDump() {
 	for {
 		time.Sleep(time.Duration(ServerConfig.StoreInterval) * time.Second)
-		storage.Dump(ServerConfig.FileStoragePath)
+		Storage.Dump()
 	}
 }
