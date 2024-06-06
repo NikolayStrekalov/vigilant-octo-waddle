@@ -6,12 +6,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/memstorage"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func Test_updateHandler(t *testing.T) {
+func Test_updateMetricHandler(t *testing.T) {
 	type args struct {
 		res *httptest.ResponseRecorder
 		req *http.Request
@@ -223,14 +224,16 @@ func Test_metricHandler(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		storage.gauge = map[string]float64{
+		storage := memstorage.NewMemStorage(false, "")
+		storage.Gauge = map[string]float64{
 			"RandomValue": 0.31,
 			"qwer":        3.1415,
 		}
-		storage.counter = map[string]int64{
+		storage.Counter = map[string]int64{
 			"PollCount": -62,
 			"ewq":       9321,
 		}
+		Storage = storage
 		t.Run(tt.name, func(t *testing.T) {
 			r := chi.NewRouter()
 			prepareRoutes(r)

@@ -1,0 +1,4 @@
+pre-commit:
+  scripts:
+    "go-mod-tidy.sh":
+    "golangci-lint-pre-commit.sh":

@@ -1,8 +1,6 @@
 #! /bin/bash
 set -e
 
-cd "${1}"
-
 main() {
     local REPORT_FILE="./golangci-lint/report.json"
     make golangci-lint-run > /dev/null 2> /dev/null

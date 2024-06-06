@@ -1,6 +1,7 @@
-package server
+package memstorage
 
 import (
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -57,14 +58,15 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
+				sync:       false,
 			}
 			m.UpdateGauge(tt.args.name, tt.args.value)
-			assert.True(t, reflect.DeepEqual(m.gauge, tt.wantFields.gauge))
-			assert.True(t, reflect.DeepEqual(m.counter, tt.wantFields.counter))
+			assert.True(t, reflect.DeepEqual(m.Gauge, tt.wantFields.gauge))
+			assert.True(t, reflect.DeepEqual(m.Counter, tt.wantFields.counter))
 		})
 	}
 }
@@ -118,14 +120,14 @@ func TestMemStorage_IncrementCounter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
 			m.IncrementCounter(tt.args.name, tt.args.value)
-			assert.True(t, reflect.DeepEqual(m.gauge, tt.wantFields.gauge))
-			assert.True(t, reflect.DeepEqual(m.counter, tt.wantFields.counter))
+			assert.True(t, reflect.DeepEqual(m.Gauge, tt.wantFields.gauge))
+			assert.True(t, reflect.DeepEqual(m.Counter, tt.wantFields.counter))
 		})
 	}
 }
@@ -173,8 +175,8 @@ func TestMemStorage_GetGauge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
@@ -233,8 +235,8 @@ func TestMemStorage_GetCounter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
@@ -288,8 +290,8 @@ func TestMemStorage_GetGaugeList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
@@ -337,8 +339,8 @@ func TestMemStorage_GetCounterList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MemStorage{
-				gauge:      tt.fields.gauge,
-				counter:    tt.fields.counter,
+				Gauge:      tt.fields.gauge,
+				Counter:    tt.fields.counter,
 				muxGauge:   &sync.RWMutex{},
 				muxCounter: &sync.RWMutex{},
 			}
@@ -346,4 +348,50 @@ func TestMemStorage_GetCounterList(t *testing.T) {
 			assert.ElementsMatch(t, tt.want, got)
 		})
 	}
+}
+
+func TestMemStorageSync(t *testing.T) {
+	f, err := os.CreateTemp("", "tmpfile-")
+	if err != nil {
+		t.Errorf("create temp file error: %v", err)
+		return
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
+	storage := NewMemStorage(true, f.Name())
+	storage.IncrementCounter("some", 10)
+	storage.UpdateGauge("any", 3.1415)
+	data, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Errorf("reading temp file error: %v", err)
+		return
+	}
+	assert.Equal(t, `{"Gauge":{"any":3.1415},"Counter":{"some":10}}`, string(data))
+}
+
+func TestMemStorageRestore(t *testing.T) {
+	f, err := os.CreateTemp("", "tmpfile-")
+	if err != nil {
+		t.Errorf("create temp file error: %v", err)
+		return
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
+	err = os.WriteFile(f.Name(), []byte(`{"Gauge":{"any":3.1415},"Counter":{"some":10}}`), 0o600)
+	if err != nil {
+		t.Errorf("write temp file error: %v", err)
+		return
+	}
+	storage := NewMemStorage(false, f.Name())
+	storage.Restore()
+	assert.Equal(t, 3.1415, storage.Gauge["any"])
+	assert.Equal(t, int64(10), storage.Counter["some"])
 }
