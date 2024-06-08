@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"github.com/mailru/easyjson"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 const (
@@ -17,6 +19,7 @@ const (
 	updateMetricPath           = "/update/{kind}/{name}/{value}"
 	getMetricPathJSON          = "/value/"
 	updateMetricPathJSON       = "/update/"
+	pingPath                   = "/ping"
 	messageInternalServerError = "InternalServerError"
 	gaugeKind                  = "gauge"
 	counterKind                = "counter"
@@ -31,6 +34,7 @@ func prepareRoutes(r *chi.Mux) {
 	r.Post(updateMetricPath, updateMetricHandler)
 	r.Post(getMetricPathJSON, metricJSONHandler)
 	r.Post(updateMetricPathJSON, updateMetricJSONHandler)
+	r.Get(pingPath, pingHandler)
 }
 
 func indexHandler(res http.ResponseWriter, req *http.Request) {
@@ -201,4 +205,16 @@ func updateMetricJSONHandler(res http.ResponseWriter, req *http.Request) {
 	if _, err := res.Write(rawBytes); err != nil {
 		http.Error(res, messageInternalServerError, http.StatusInternalServerError)
 	}
+}
+
+func pingHandler(res http.ResponseWriter, req *http.Request) {
+	conn, err := pgx.Connect(context.Background(), ServerConfig.DatabaseDSN)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer func() {
+		_ = conn.Close(context.Background())
+	}()
+	res.WriteHeader(http.StatusOK)
 }
