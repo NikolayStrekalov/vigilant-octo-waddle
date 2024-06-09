@@ -1,16 +1,15 @@
 package server
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"strconv"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/pgstorage"
 	"github.com/mailru/easyjson"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
 )
 
 const (
@@ -208,13 +207,9 @@ func updateMetricJSONHandler(res http.ResponseWriter, req *http.Request) {
 }
 
 func pingHandler(res http.ResponseWriter, req *http.Request) {
-	conn, err := pgx.Connect(context.Background(), ServerConfig.DatabaseDSN)
-	if err != nil {
-		res.WriteHeader(http.StatusInternalServerError)
+	if pgstorage.Ping(ServerConfig.DatabaseDSN) {
+		res.WriteHeader(http.StatusOK)
 		return
 	}
-	defer func() {
-		_ = conn.Close(context.Background())
-	}()
-	res.WriteHeader(http.StatusOK)
+	res.WriteHeader(http.StatusInternalServerError)
 }

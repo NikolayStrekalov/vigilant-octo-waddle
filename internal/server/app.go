@@ -30,22 +30,37 @@ func Start() {
 		flag.PrintDefaults()
 		panic(err)
 	}
+	var storageClose func() error
 	if ServerConfig.DatabaseDSN == "" {
 		Storage = memstorage.NewMemStorage(ServerConfig.IsSyncDump(), ServerConfig.FileStoragePath)
 	} else {
-		var storageClose func() error
-		Storage, storageClose, err = pgstorage.NewPGStorage(
-			ServerConfig.DatabaseDSN,
-			ServerConfig.IsSyncDump(),
-			ServerConfig.FileStoragePath,
-		)
-		defer func() {
-			_ = storageClose()
-		}()
-		if err != nil {
-			panic(err)
+		var reinit = func() {
+			logger.Info("reinit")
+			var storage StorageOperations
+			storage, storageClose, err = pgstorage.NewPGStorage(
+				ServerConfig.DatabaseDSN,
+			)
+			if err != nil {
+				logger.Info("can't init storage with DSN: %s, %w", ServerConfig.DatabaseDSN, err)
+			} else {
+				Storage = storage
+			}
 		}
+		var checkResource = func() bool {
+			return pgstorage.Ping(ServerConfig.DatabaseDSN)
+		}
+		Storage = &DeferredStorage{
+			reinit:        &reinit,
+			checkResource: &checkResource,
+		}
+		reinit()
 	}
+	defer func() {
+		if storageClose != nil {
+			_ = storageClose()
+		}
+	}()
+
 	// Восстанавливаем данные
 	if ServerConfig.RestoreStore {
 		Storage.Restore()

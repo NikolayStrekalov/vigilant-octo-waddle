@@ -8,9 +8,7 @@ import (
 )
 
 type PGStorage struct {
-	db       *DB
-	dumpFile string
-	sync     bool
+	db *DB
 }
 
 type GaugeListItem = struct {
@@ -23,15 +21,13 @@ type CounterListItem = struct {
 	Value int64
 }
 
-func NewPGStorage(dsn string, synchronous bool, dumpPath string) (*PGStorage, func() error, error) {
+func NewPGStorage(dsn string) (*PGStorage, func() error, error) {
 	db, err := NewDB(context.TODO(), Config{DSN: dsn})
 	if err != nil {
 		return nil, func() error { return db.Close() }, fmt.Errorf("init db error: %w", err)
 	}
 	return &PGStorage{
-		sync:     synchronous,
-		dumpFile: dumpPath,
-		db:       db,
+		db: db,
 	}, func() error { return db.Close() }, nil
 }
 

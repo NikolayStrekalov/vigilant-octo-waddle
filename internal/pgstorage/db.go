@@ -52,10 +52,7 @@ func (db *DB) initTables(ctx context.Context) error {
 	row := db.pool.QueryRow(ctx, "SELECT version FROM migrations WHERE id = 1")
 	var version int
 	err := row.Scan(&version)
-	if err != nil {
-		return fmt.Errorf("error reading schema version: %w", err)
-	}
-	if version == 0 {
+	if err != nil || version == 0 {
 		err := db.createSchema(ctx)
 		if err != nil {
 			return err
