@@ -14,6 +14,7 @@ type Config struct {
 	DatabaseDSN     string
 	StoreInterval   int
 	RestoreStore    bool
+	UseDB           bool
 }
 
 const defaultStoreInterval = 300 // seconds
@@ -51,7 +52,7 @@ func fillConfig() error {
 	flag.StringVar(
 		&ServerConfig.DatabaseDSN,
 		"d",
-		"postgres://postgres:123@localhost:5432/postgres",
+		"",
 		"Адрес базы данных PostgreSQL",
 	)
 	flag.Parse()

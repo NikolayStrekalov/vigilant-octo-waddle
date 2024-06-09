@@ -30,7 +30,6 @@ func Start() {
 		flag.PrintDefaults()
 		panic(err)
 	}
-	// TODO: change condition; now it always false
 	if ServerConfig.DatabaseDSN == "" {
 		Storage = memstorage.NewMemStorage(ServerConfig.IsSyncDump(), ServerConfig.FileStoragePath)
 	} else {
