@@ -11,11 +11,13 @@ import (
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/memstorage"
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/pgstorage"
 
 	chi "github.com/go-chi/chi/v5"
 )
 
 func Start() {
+	var err error
 	// Инициализируем логирование
 	lgr := logger.InitLog()
 	defer func() {
@@ -28,8 +30,23 @@ func Start() {
 		flag.PrintDefaults()
 		panic(err)
 	}
-	Storage = memstorage.NewMemStorage(ServerConfig.IsSyncDump(), ServerConfig.FileStoragePath)
-
+	// TODO: change condition; now it always false
+	if ServerConfig.DatabaseDSN == "" {
+		Storage = memstorage.NewMemStorage(ServerConfig.IsSyncDump(), ServerConfig.FileStoragePath)
+	} else {
+		var storageClose func() error
+		Storage, storageClose, err = pgstorage.NewPGStorage(
+			ServerConfig.DatabaseDSN,
+			ServerConfig.IsSyncDump(),
+			ServerConfig.FileStoragePath,
+		)
+		defer func() {
+			_ = storageClose()
+		}()
+		if err != nil {
+			panic(err)
+		}
+	}
 	// Восстанавливаем данные
 	if ServerConfig.RestoreStore {
 		Storage.Restore()
@@ -54,7 +71,7 @@ func Start() {
 
 	// Запускаем сервер
 	server = &http.Server{Addr: ServerConfig.Address, Handler: r}
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
