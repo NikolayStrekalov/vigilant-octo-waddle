@@ -68,13 +68,3 @@ func (p *PGStorage) IncrementCounter(name string, value int64) {
 		logger.Info("failed to update counter:", err)
 	}
 }
-
-func (p *PGStorage) Dump() {
-	// Do nothing; dumped by DB
-	// TODO: remove from StorageOperations?
-}
-
-func (p *PGStorage) Restore() {
-	// Do nothing; restored by DB
-	// TODO: remove from StorageOperations?
-}

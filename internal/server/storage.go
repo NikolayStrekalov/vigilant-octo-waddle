@@ -11,8 +11,6 @@ type StorageOperations interface {
 	GetCounter(string) (int64, error)
 	UpdateGauge(string, float64)
 	IncrementCounter(string, int64)
-	Dump()
-	Restore()
 }
 
 type GaugeListItem = struct {
@@ -64,13 +62,5 @@ func (d *DeferredStorage) UpdateGauge(name string, value float64) {
 }
 
 func (d *DeferredStorage) IncrementCounter(name string, value int64) {
-	d.tryInit()
-}
-
-func (d *DeferredStorage) Dump() {
-	d.tryInit()
-}
-
-func (d *DeferredStorage) Restore() {
 	d.tryInit()
 }

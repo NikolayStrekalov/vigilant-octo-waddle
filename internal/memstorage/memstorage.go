@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
 	"github.com/mailru/easyjson"
@@ -14,12 +15,13 @@ const dumpFilePermissions = 0o600
 
 //easyjson:json
 type MemStorage struct {
-	Gauge      map[string]float64
-	Counter    map[string]int64
-	muxGauge   *sync.RWMutex
-	muxCounter *sync.RWMutex
-	dumpFile   string
-	sync       bool
+	Gauge         map[string]float64
+	Counter       map[string]int64
+	muxGauge      *sync.RWMutex
+	muxCounter    *sync.RWMutex
+	dumpFile      string
+	sync          bool
+	storeInterval time.Duration
 }
 
 var errNotFound = errors.New("not found")
@@ -29,15 +31,27 @@ type GaugeListItem = struct {
 	Value float64
 }
 
-func NewMemStorage(synchronous bool, dumpPath string) *MemStorage {
-	return &MemStorage{
-		Gauge:      make(map[string]float64),
-		Counter:    make(map[string]int64),
-		muxGauge:   &sync.RWMutex{},
-		muxCounter: &sync.RWMutex{},
-		sync:       synchronous,
-		dumpFile:   dumpPath,
+func NewMemStorage(dumpPath string, restore bool, storeInterval int) (*MemStorage, func() error, error) {
+	storage := MemStorage{
+		Gauge:         make(map[string]float64),
+		Counter:       make(map[string]int64),
+		muxGauge:      &sync.RWMutex{},
+		muxCounter:    &sync.RWMutex{},
+		sync:          dumpPath != "" && storeInterval == 0,
+		dumpFile:      dumpPath,
+		storeInterval: time.Duration(storeInterval) * time.Second,
 	}
+	if restore {
+		storage.restore()
+	}
+	if dumpPath != "" && storeInterval > 0 {
+		go storage.periodicDump()
+	}
+	var closeStorage = func() error {
+		storage.dump()
+		return nil
+	}
+	return &storage, closeStorage, nil
 }
 
 func (m MemStorage) GetGaugeList() []GaugeListItem {
@@ -88,7 +102,7 @@ func (m MemStorage) UpdateGauge(name string, value float64) {
 	m.Gauge[name] = value
 	m.muxGauge.Unlock()
 	if m.sync {
-		m.Dump()
+		m.dump()
 	}
 }
 
@@ -97,11 +111,11 @@ func (m MemStorage) IncrementCounter(name string, value int64) {
 	m.Counter[name] += value
 	m.muxCounter.Unlock()
 	if m.sync {
-		m.Dump()
+		m.dump()
 	}
 }
 
-func (m MemStorage) Dump() {
+func (m MemStorage) dump() {
 	if m.dumpFile == "" {
 		return
 	}
@@ -123,7 +137,7 @@ func (m MemStorage) Dump() {
 	}
 }
 
-func (m *MemStorage) Restore() {
+func (m *MemStorage) restore() {
 	if m.dumpFile == "" {
 		return
 	}
@@ -143,6 +157,13 @@ func (m *MemStorage) Restore() {
 	if err != nil {
 		logger.Info("Error unmarshalling dump.", err)
 		return
+	}
+}
+
+func (m *MemStorage) periodicDump() {
+	for {
+		time.Sleep(m.storeInterval)
+		m.dump()
 	}
 }
 

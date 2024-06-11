@@ -224,7 +224,7 @@ func Test_metricHandler(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		storage := memstorage.NewMemStorage(false, "")
+		storage, _, _ := memstorage.NewMemStorage("", false, 300)
 		storage.Gauge = map[string]float64{
 			"RandomValue": 0.31,
 			"qwer":        3.1415,

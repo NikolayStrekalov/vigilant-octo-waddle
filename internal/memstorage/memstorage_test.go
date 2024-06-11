@@ -362,7 +362,7 @@ func TestMemStorageSync(t *testing.T) {
 	defer func() {
 		_ = os.Remove(f.Name())
 	}()
-	storage := NewMemStorage(true, f.Name())
+	storage, _, _ := NewMemStorage(f.Name(), false, 0)
 	storage.IncrementCounter("some", 10)
 	storage.UpdateGauge("any", 3.1415)
 	data, err := os.ReadFile(f.Name())
@@ -390,8 +390,8 @@ func TestMemStorageRestore(t *testing.T) {
 		t.Errorf("write temp file error: %v", err)
 		return
 	}
-	storage := NewMemStorage(false, f.Name())
-	storage.Restore()
+	storage, _, _ := NewMemStorage(f.Name(), false, 300)
+	storage.restore()
 	assert.Equal(t, 3.1415, storage.Gauge["any"])
 	assert.Equal(t, int64(10), storage.Counter["some"])
 }

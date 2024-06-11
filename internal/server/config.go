@@ -1,33 +1,27 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
+
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
 )
 
 type Config struct {
-	Address         string
-	FileStoragePath string
-	DatabaseDSN     string
-	StoreInterval   int
-	RestoreStore    bool
-	UseDB           bool
+	Address         string `json:"server"`
+	FileStoragePath string `json:"dumpPath"`
+	DatabaseDSN     string `json:"dsn"`
+	StoreInterval   int    `json:"interval"`
+	RestoreStore    bool   `json:"restore"`
 }
 
 const defaultStoreInterval = 300 // seconds
 
 var ServerConfig = Config{}
-
-func (c *Config) IsSyncDump() bool {
-	return c.StoreInterval == 0 && c.FileStoragePath != ""
-}
-
-func (c *Config) DumpEnabled() bool {
-	return c.FileStoragePath != "" && ServerConfig.StoreInterval > 0
-}
 
 func fillConfig() error {
 	flag.StringVar(&ServerConfig.Address, "a", "localhost:8080", "Эндпоинт сервера HOST:PORT")
@@ -83,5 +77,15 @@ func fillConfig() error {
 	if envDatabase := os.Getenv("DATABASE_DSN"); envDatabase != "" {
 		ServerConfig.DatabaseDSN = envDatabase
 	}
+
+	ServerConfig.log()
 	return nil
+}
+
+func (s *Config) log() {
+	lg, err := json.Marshal(ServerConfig)
+	if err != nil {
+		logger.Info("error serializing config:", err)
+	}
+	logger.Info("config:", string(lg))
 }

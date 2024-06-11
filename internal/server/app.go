@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/memstorage"
@@ -32,28 +31,19 @@ func Start() {
 	}
 	var storageClose func() error
 	if ServerConfig.DatabaseDSN == "" {
-		Storage = memstorage.NewMemStorage(ServerConfig.IsSyncDump(), ServerConfig.FileStoragePath)
+		Storage, storageClose, err = memstorage.NewMemStorage(
+			ServerConfig.FileStoragePath,
+			ServerConfig.RestoreStore,
+			ServerConfig.StoreInterval,
+		)
 	} else {
-		var reinit = func() {
-			logger.Info("reinit")
-			var storage StorageOperations
-			storage, storageClose, err = pgstorage.NewPGStorage(
-				ServerConfig.DatabaseDSN,
-			)
-			if err != nil {
-				logger.Info("can't init storage with DSN: %s, %w", ServerConfig.DatabaseDSN, err)
-			} else {
-				Storage = storage
-			}
-		}
-		var checkResource = func() bool {
-			return pgstorage.Ping(ServerConfig.DatabaseDSN)
-		}
-		Storage = &DeferredStorage{
-			reinit:        &reinit,
-			checkResource: &checkResource,
-		}
-		reinit()
+		// TODO: повторная инициализация при недоступности базы
+		Storage, storageClose, err = pgstorage.NewPGStorage(
+			ServerConfig.DatabaseDSN,
+		)
+	}
+	if err != nil {
+		logger.Info("error creating storage:", err)
 	}
 	defer func() {
 		if storageClose != nil {
@@ -61,22 +51,12 @@ func Start() {
 		}
 	}()
 
-	// Восстанавливаем данные
-	if ServerConfig.RestoreStore {
-		Storage.Restore()
-	}
-	// Периодически сохраняем данные
-	if ServerConfig.DumpEnabled() {
-		go periodicDump()
-	}
-
-	// При выходе сохраняем данные
+	// Дожидаемся выхода из этой функции
 	var server *http.Server
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
-		Storage.Dump()
 		err := server.Shutdown(context.Background())
 		if err != nil {
 			panic(err)
@@ -97,11 +77,4 @@ func appRouter() *chi.Mux {
 	r.Use(gzipMiddleware)
 	prepareRoutes(r)
 	return r
-}
-
-func periodicDump() {
-	for {
-		time.Sleep(time.Duration(ServerConfig.StoreInterval) * time.Second)
-		Storage.Dump()
-	}
 }

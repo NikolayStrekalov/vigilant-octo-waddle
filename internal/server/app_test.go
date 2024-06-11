@@ -41,7 +41,7 @@ func Compress(data []byte) []byte {
 func Test_appRouter(t *testing.T) {
 	_ = logger.InitLog()
 	r := appRouter()
-	Storage = memstorage.NewMemStorage(false, "")
+	Storage, _, _ = memstorage.NewMemStorage("", false, 300)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 	baseURL := ts.URL
