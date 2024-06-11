@@ -19,6 +19,7 @@ const (
 	getMetricPathJSON          = "/value/"
 	updateMetricPathJSON       = "/update/"
 	pingPath                   = "/ping"
+	bulkUpdatePath             = "/updates/"
 	messageInternalServerError = "InternalServerError"
 	gaugeKind                  = "gauge"
 	counterKind                = "counter"
@@ -34,6 +35,7 @@ func prepareRoutes(r *chi.Mux) {
 	r.Post(getMetricPathJSON, metricJSONHandler)
 	r.Post(updateMetricPathJSON, updateMetricJSONHandler)
 	r.Get(pingPath, pingHandler)
+	r.Post(bulkUpdatePath, bulkHandler)
 }
 
 func indexHandler(res http.ResponseWriter, req *http.Request) {
@@ -212,4 +214,25 @@ func pingHandler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	res.WriteHeader(http.StatusInternalServerError)
+}
+
+func bulkHandler(res http.ResponseWriter, req *http.Request) {
+	if val, ok := req.Header["Content-Type"]; !ok || val[0] != applicationJSONType {
+		http.Error(res, "Wrong Content-Type, use application/json!", http.StatusBadRequest)
+		return
+	}
+	metrics := models.MetricsSlice{}
+	data, err := io.ReadAll(req.Body)
+	defer func() { _ = req.Body.Close() }()
+	if err != nil {
+		http.Error(res, messageInternalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	if err := easyjson.Unmarshal(data, &metrics); err != nil {
+		http.Error(res, "Wrong json provided.", http.StatusBadRequest)
+		return
+	}
+	Storage.BulkUpdate(metrics)
+	res.WriteHeader(http.StatusOK)
 }

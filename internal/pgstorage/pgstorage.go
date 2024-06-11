@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
 )
 
 type PGStorage struct {
@@ -66,5 +67,11 @@ func (p *PGStorage) IncrementCounter(name string, value int64) {
 	err := p.db.IncrementCounter(context.TODO(), name, value)
 	if err != nil {
 		logger.Info("failed to update counter:", err)
+	}
+}
+func (p *PGStorage) BulkUpdate(metrics models.MetricsSlice) {
+	err := p.db.BulkUpdate(context.TODO(), metrics)
+	if err != nil {
+		logger.Info("failed doing bulk update:", err)
 	}
 }

@@ -52,4 +52,5 @@ func setupConfig() {
 	}
 
 	ReportBaseURL = fmt.Sprintf("http://%s/update/", Config.ServerAddress)
+	ReportBulkURL = fmt.Sprintf("http://%s/updates/", Config.ServerAddress)
 }

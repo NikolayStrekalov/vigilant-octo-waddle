@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,6 +18,13 @@ type Config struct {
 type DB struct {
 	pool *pgxpool.Pool
 }
+
+const (
+	sqlUpdateGauge = `INSERT INTO gauges(name, value) VALUES ($1, $2)
+ON CONFLICT ON CONSTRAINT gauges_name_key DO UPDATE SET value = EXCLUDED.value;`
+	sqlIncrementCounter = `INSERT INTO counters(name, value) VALUES ($1, $2)
+ON CONFLICT ON CONSTRAINT counters_name_key DO UPDATE SET value = counters.value + EXCLUDED.value;`
+)
 
 func NewDB(ctx context.Context, cfg Config) (*DB, error) {
 	pool, err := initPool(ctx, cfg)
@@ -172,9 +180,7 @@ func (db *DB) GetCounters(ctx context.Context) ([]CounterListItem, error) {
 }
 
 func (db *DB) UpdateGauge(ctx context.Context, name string, value float64) error {
-	sql := `INSERT INTO gauges(name, value) VALUES ($1, $2)
-	ON CONFLICT ON CONSTRAINT gauges_name_key DO UPDATE SET value = EXCLUDED.value;`
-	_, err := db.pool.Exec(ctx, sql, name, value)
+	_, err := db.pool.Exec(ctx, sqlUpdateGauge, name, value)
 	if err != nil {
 		return fmt.Errorf("failed to update gauge %s: %w", name, err)
 	}
@@ -182,11 +188,26 @@ func (db *DB) UpdateGauge(ctx context.Context, name string, value float64) error
 }
 
 func (db *DB) IncrementCounter(ctx context.Context, name string, value int64) error {
-	sql := `INSERT INTO counters(name, value) VALUES ($1, $2)
-	ON CONFLICT ON CONSTRAINT counters_name_key DO UPDATE SET value = counters.value + EXCLUDED.value;`
-	_, err := db.pool.Exec(ctx, sql, name, value)
+	_, err := db.pool.Exec(ctx, sqlIncrementCounter, name, value)
 	if err != nil {
 		return fmt.Errorf("failed to increment counter %s: %w", name, err)
+	}
+	return nil
+}
+
+func (db *DB) BulkUpdate(ctx context.Context, metrics models.MetricsSlice) error {
+	batch := &pgx.Batch{}
+	for _, metric := range metrics {
+		switch metric.MType {
+		case "counter":
+			batch.Queue(sqlIncrementCounter, metric.ID, metric.Delta)
+		case "gauge":
+			batch.Queue(sqlUpdateGauge, metric.ID, metric.Value)
+		}
+	}
+	err := db.pool.SendBatch(ctx, batch).Close()
+	if err != nil {
+		return fmt.Errorf("error sending batch update: %w", err)
 	}
 	return nil
 }

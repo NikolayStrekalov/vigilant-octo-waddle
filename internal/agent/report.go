@@ -15,6 +15,7 @@ import (
 )
 
 var ReportBaseURL = "http://localhost:8080/update/"
+var ReportBulkURL = "http://localhost:8080/updates/"
 
 func sendStat(kind StatKind, name StatName, value string) {
 	path, err := url.JoinPath(ReportBaseURL, string(kind), string(name), value)
@@ -35,7 +36,7 @@ func sendStat(kind StatKind, name StatName, value string) {
 	}
 }
 
-func sendStatJSON(m *models.Metrics) {
+func sendStatJSON(m easyjson.Marshaler, toURL string) {
 	data, err := easyjson.Marshal(m)
 	if err != nil {
 		fmt.Println("Fail to serialize metric.", err)
@@ -46,7 +47,7 @@ func sendStatJSON(m *models.Metrics) {
 		fmt.Println("Compress error:", err)
 		return
 	}
-	req, err := http.NewRequest(http.MethodPost, ReportBaseURL, bytes.NewReader(gzData))
+	req, err := http.NewRequest(http.MethodPost, toURL, bytes.NewReader(gzData))
 	if err != nil {
 		fmt.Println("Create request error:", err)
 		return
@@ -78,6 +79,7 @@ func reportStats() {
 		statMutex.Lock()
 		runtime.ReadMemStats(&RuntimeStats)
 		r := reflect.ValueOf(RuntimeStats)
+		metrics := models.MetricsSlice{}
 		for _, statName := range runtimeStatList {
 			f := reflect.Indirect(r).FieldByName(string(statName))
 
@@ -89,8 +91,7 @@ func reportStats() {
 			if *runtimeMetrics.Value, err = getFloatStat(f); err != nil {
 				fmt.Println(err)
 			}
-
-			go sendStatJSON(&runtimeMetrics)
+			metrics = append(metrics, runtimeMetrics)
 		}
 		randomMetrics := models.Metrics{
 			ID:    string(statRandomValue),
@@ -98,17 +99,18 @@ func reportStats() {
 			Value: new(float64),
 		}
 		*randomMetrics.Value = RandomValue
-		go sendStatJSON(&randomMetrics)
+		metrics = append(metrics, randomMetrics)
 		pollMetrics := models.Metrics{
 			ID:    string(statPollCount),
 			MType: "counter",
 			Delta: new(int64),
 		}
 		*pollMetrics.Delta = int64(PollCount)
-		go sendStatJSON(&pollMetrics)
+		metrics = append(metrics, pollMetrics)
 		PollCount = 0
 		statMutex.Unlock()
 
+		go sendStatJSON(metrics, ReportBulkURL)
 		time.Sleep(time.Duration(Config.ReportInterval) * time.Second)
 	}
 }

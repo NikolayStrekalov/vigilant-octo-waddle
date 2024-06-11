@@ -77,7 +77,7 @@ func Test_appRouter(t *testing.T) {
 	assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
 	data, err = io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	assert.Equal(t, `{"id":"34","type":"gauge","value":74.092}`, string(Decompress(data)))
+	assert.JSONEq(t, `{"id":"34","type":"gauge","value":74.092}`, string(Decompress(data)))
 	_ = res.Body.Close()
 
 	data = Compress([]byte(`{"id":"34","type":"gauge"}`))
@@ -93,6 +93,6 @@ func Test_appRouter(t *testing.T) {
 	assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
 	data, err = io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	assert.Equal(t, `{"id":"34","type":"gauge","value":74.092}`, string(Decompress(data)))
+	assert.JSONEq(t, `{"id":"34","type":"gauge","value":74.092}`, string(Decompress(data)))
 	_ = res.Body.Close()
 }

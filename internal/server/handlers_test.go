@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -287,4 +288,107 @@ func Test_indexHandler(t *testing.T) {
 	require.NoError(t, err)
 	// проверяем Content-Type
 	assert.Equal(t, want.contentType, res.Header.Get("Content-Type"))
+}
+
+func Test_bulkHandler(t *testing.T) {
+	validBody := bytes.NewReader([]byte(`[{
+		"id": "qwe",
+		"type": "counter",
+		"delta": 3
+	}]`))
+	invalidBody := bytes.NewReader([]byte(`[{
+		"id": "qwe",
+		"type": "counter",
+		"delta":
+	}]`))
+	type args struct {
+		res  *httptest.ResponseRecorder
+		req  *http.Request
+		json bool
+	}
+	type want struct {
+		code        int
+		response    string
+		contentType string
+	}
+	tests := []struct {
+		name string
+		args args
+		want want
+	}{
+		{
+			name: "Test valid data",
+			args: args{
+				res:  httptest.NewRecorder(),
+				req:  httptest.NewRequest(http.MethodPost, "http://localhost:8080/updates/", validBody),
+				json: true,
+			},
+			want: want{
+				code:        200,
+				response:    "",
+				contentType: "",
+			},
+		},
+		{
+			name: "Test invalid data",
+			args: args{
+				res:  httptest.NewRecorder(),
+				req:  httptest.NewRequest(http.MethodPost, "http://localhost:8080/updates/", invalidBody),
+				json: true,
+			},
+			want: want{
+				code:        400,
+				response:    "Wrong json provided.\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name: "Test GET method",
+			args: args{
+				res:  httptest.NewRecorder(),
+				req:  httptest.NewRequest(http.MethodGet, "http://localhost:8080/updates/", validBody),
+				json: true,
+			},
+			want: want{
+				code:        405,
+				response:    "",
+				contentType: "",
+			},
+		},
+		{
+			name: "Test not json",
+			args: args{
+				res:  httptest.NewRecorder(),
+				req:  httptest.NewRequest(http.MethodPost, "http://localhost:8080/updates/", validBody),
+				json: false,
+			},
+			want: want{
+				code:        400,
+				response:    "Wrong Content-Type, use application/json!\n",
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.args.json {
+				tt.args.req.Header.Add("Content-Type", "application/json")
+			}
+			r := chi.NewRouter()
+			prepareRoutes(r)
+			r.ServeHTTP(tt.args.res, tt.args.req)
+			res := tt.args.res.Result()
+			// проверяем код ответа
+			assert.Equal(t, tt.want.code, res.StatusCode)
+
+			defer func() {
+				_ = res.Body.Close()
+			}()
+			resBody, err := io.ReadAll(res.Body)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want.response, string(resBody))
+			// проверяем Content-Type
+			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
+		})
+	}
 }
