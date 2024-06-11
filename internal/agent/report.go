@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,10 +13,14 @@ import (
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
 	"github.com/mailru/easyjson"
+
+	"github.com/avast/retry-go/v4"
 )
 
 var ReportBaseURL = "http://localhost:8080/update/"
 var ReportBulkURL = "http://localhost:8080/updates/"
+
+const maxRequestAttempts = 4
 
 func sendStat(kind StatKind, name StatName, value string) {
 	path, err := url.JoinPath(ReportBaseURL, string(kind), string(name), value)
@@ -55,7 +60,18 @@ func sendStatJSON(m easyjson.Marshaler, toURL string) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 
-	resp, err := http.DefaultClient.Do(req)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(Config.ReportInterval))
+	defer cancel()
+	resp, err := retry.DoWithData(
+		func() (*http.Response, error) {
+			return http.DefaultClient.Do(req)
+		},
+		retry.Context(ctx),
+		retry.Attempts(maxRequestAttempts),
+		retry.DelayType(func(n uint, err error, config *retry.Config) time.Duration {
+			return time.Duration(1+n*2) * time.Second
+		}),
+	)
 	if err != nil {
 		fmt.Println("Post error:", err)
 		return
