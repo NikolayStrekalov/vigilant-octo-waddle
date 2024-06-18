@@ -101,7 +101,7 @@ func Test_sendStatJSON(t *testing.T) {
 	defer ts.Close()
 	ReportBaseURL = ts.URL
 	for _, tt := range tests {
-		sendStatJSON(tt.args.m, ReportBaseURL)
+		_ = sendStatJSON(tt.args.m, ReportBaseURL)
 		assert.Equal(t, "application/json", contentTypeHeader)
 		assert.Equal(t, "gzip", contentEncodingHeader)
 

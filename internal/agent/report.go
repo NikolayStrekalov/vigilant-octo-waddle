@@ -41,21 +41,18 @@ func sendStat(kind StatKind, name StatName, value string) {
 	}
 }
 
-func sendStatJSON(m easyjson.Marshaler, toURL string) {
+func sendStatJSON(m easyjson.Marshaler, toURL string) error {
 	data, err := easyjson.Marshal(m)
 	if err != nil {
-		fmt.Println("Fail to serialize metric.", err)
-		return
+		return fmt.Errorf("fail to serialize metric: %w", err)
 	}
 	gzData, err := Compress(data)
 	if err != nil {
-		fmt.Println("Compress error:", err)
-		return
+		return fmt.Errorf("compress error: %w", err)
 	}
 	req, err := http.NewRequest(http.MethodPost, toURL, bytes.NewReader(gzData))
 	if err != nil {
-		fmt.Println("Create request error:", err)
-		return
+		return fmt.Errorf("create request error: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
@@ -73,8 +70,7 @@ func sendStatJSON(m easyjson.Marshaler, toURL string) {
 		}),
 	)
 	if err != nil {
-		fmt.Println("Post error:", err)
-		return
+		return fmt.Errorf("post error: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -82,16 +78,18 @@ func sendStatJSON(m easyjson.Marshaler, toURL string) {
 	if resp.StatusCode != http.StatusOK {
 		data, err := io.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Println("Response read error:", err)
-			return
+			return fmt.Errorf("response read error: %w", err)
 		}
-		fmt.Println(ReportBaseURL, "Wrong request code:", resp.StatusCode, string(data))
+		return fmt.Errorf("wrong response code: %d, data: %s", resp.StatusCode, string(data))
 	}
+	return nil
 }
 
 func reportStats() {
 	var err error
+	ticker := time.NewTicker(time.Duration(Config.ReportInterval) * time.Second)
 	for {
+		<-ticker.C
 		statMutex.Lock()
 		runtime.ReadMemStats(&RuntimeStats)
 		r := reflect.ValueOf(RuntimeStats)
@@ -121,12 +119,17 @@ func reportStats() {
 			MType: "counter",
 			Delta: new(int64),
 		}
-		*pollMetrics.Delta = int64(PollCount)
+		*pollMetrics.Delta = PollCount
 		metrics = append(metrics, pollMetrics)
 		PollCount = 0
 		statMutex.Unlock()
 
-		go sendStatJSON(metrics, ReportBulkURL)
-		time.Sleep(time.Duration(Config.ReportInterval) * time.Second)
+		err := sendStatJSON(metrics, ReportBulkURL)
+		if err != nil {
+			fmt.Println(err)
+			statMutex.Lock()
+			PollCount += *pollMetrics.Delta
+			statMutex.Unlock()
+		}
 	}
 }
