@@ -24,7 +24,6 @@ func Start() {
 	}()
 
 	// Настраиваем приложение
-	r := appRouter()
 	if err := fillConfig(); err != nil {
 		flag.PrintDefaults()
 		panic(err)
@@ -50,6 +49,7 @@ func Start() {
 			_ = storageClose()
 		}
 	}()
+	r := appRouter()
 
 	// Дожидаемся выхода из этой функции
 	var server *http.Server
@@ -74,6 +74,9 @@ func Start() {
 func appRouter() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(logger.RequestLogger)
+	if ServerConfig.SignKey != "" {
+		r.Use(shaMiddlewareBuilder(ServerConfig.SignKey))
+	}
 	r.Use(gzipMiddleware)
 	prepareRoutes(r)
 	return r
