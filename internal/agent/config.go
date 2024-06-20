@@ -9,6 +9,7 @@ import (
 
 type Conf struct {
 	ServerAddress  string
+	SignKey        string
 	PollInterval   uint
 	ReportInterval uint
 }
@@ -19,10 +20,12 @@ var Config = Conf{
 	PollInterval:   defaultPollInterval,
 	ReportInterval: defalutReportInterval,
 	ServerAddress:  "localhost:8080",
+	SignKey:        "",
 }
 
 func setupConfig() {
 	flag.StringVar(&Config.ServerAddress, "a", "localhost:8080", "Эндпоинт сервера HOST:PORT")
+	flag.StringVar(&Config.SignKey, "k", "", "Ключ для подписи")
 	flag.UintVar(&Config.PollInterval, "p", Config.PollInterval, "Частота опроса метрик в секундах, больше нуля")
 	flag.UintVar(&Config.ReportInterval, "r", Config.ReportInterval, "Частота отправки метрик в секундах, больше нуля")
 	flag.Parse()
@@ -49,6 +52,9 @@ func setupConfig() {
 			os.Exit(exitCodeMisconfigured)
 		}
 		Config.PollInterval = uint(val)
+	}
+	if envSignKey := os.Getenv("KEY"); envSignKey != "" {
+		Config.SignKey = envSignKey
 	}
 
 	ReportBaseURL = fmt.Sprintf("http://%s/update/", Config.ServerAddress)

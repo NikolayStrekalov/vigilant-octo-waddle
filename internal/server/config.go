@@ -15,6 +15,7 @@ type Config struct {
 	Address         string `json:"server"`
 	FileStoragePath string `json:"dumpPath"`
 	DatabaseDSN     string `json:"dsn"`
+	SignKey         string `json:"key"`
 	StoreInterval   int    `json:"interval"`
 	RestoreStore    bool   `json:"restore"`
 }
@@ -49,6 +50,12 @@ func fillConfig() error {
 		"",
 		"Адрес базы данных PostgreSQL",
 	)
+	flag.StringVar(
+		&ServerConfig.SignKey,
+		"k",
+		"",
+		"Ключ подписи запросов.",
+	)
 	flag.Parse()
 	if len(flag.Args()) > 0 {
 		return errors.New("too many args")
@@ -76,6 +83,9 @@ func fillConfig() error {
 	}
 	if envDatabase := os.Getenv("DATABASE_DSN"); envDatabase != "" {
 		ServerConfig.DatabaseDSN = envDatabase
+	}
+	if envSignKey := os.Getenv("KEY"); envSignKey != "" {
+		ServerConfig.SignKey = envSignKey
 	}
 
 	ServerConfig.log()

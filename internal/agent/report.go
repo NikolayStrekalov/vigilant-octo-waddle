@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/sign"
 	"github.com/mailru/easyjson"
 
 	"github.com/avast/retry-go/v4"
@@ -56,6 +57,13 @@ func sendStatJSON(m easyjson.Marshaler, toURL string) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	if Config.SignKey != "" {
+		signature, err := sign.Sign(gzData, Config.SignKey)
+		if err != nil {
+			return fmt.Errorf("create sign error: %w", err)
+		}
+		req.Header.Set("Hashsha256", signature)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(Config.ReportInterval))
 	defer cancel()
