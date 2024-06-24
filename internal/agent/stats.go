@@ -80,7 +80,7 @@ var runtimeStatList = [...]StatName{
 }
 
 var RuntimeStats = runtime.MemStats{}
-var PollCount int
+var PollCount int64
 var RandomValue float64
 var errStatValueConversion = errors.New("can not convert to float64")
 

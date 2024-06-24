@@ -1,5 +1,7 @@
 package server
 
+import "github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
+
 type StorageOperations interface {
 	GetGaugeList() []GaugeListItem
 	GetCounterList() []CounterListItem
@@ -7,8 +9,7 @@ type StorageOperations interface {
 	GetCounter(string) (int64, error)
 	UpdateGauge(string, float64)
 	IncrementCounter(string, int64)
-	Dump()
-	Restore()
+	BulkUpdate(models.MetricsSlice)
 }
 
 type GaugeListItem = struct {

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/pgstorage"
 	"github.com/mailru/easyjson"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +18,8 @@ const (
 	updateMetricPath           = "/update/{kind}/{name}/{value}"
 	getMetricPathJSON          = "/value/"
 	updateMetricPathJSON       = "/update/"
+	pingPath                   = "/ping"
+	bulkUpdatePath             = "/updates/"
 	messageInternalServerError = "InternalServerError"
 	gaugeKind                  = "gauge"
 	counterKind                = "counter"
@@ -31,6 +34,8 @@ func prepareRoutes(r *chi.Mux) {
 	r.Post(updateMetricPath, updateMetricHandler)
 	r.Post(getMetricPathJSON, metricJSONHandler)
 	r.Post(updateMetricPathJSON, updateMetricJSONHandler)
+	r.Get(pingPath, pingHandler)
+	r.Post(bulkUpdatePath, bulkHandler)
 }
 
 func indexHandler(res http.ResponseWriter, req *http.Request) {
@@ -201,4 +206,33 @@ func updateMetricJSONHandler(res http.ResponseWriter, req *http.Request) {
 	if _, err := res.Write(rawBytes); err != nil {
 		http.Error(res, messageInternalServerError, http.StatusInternalServerError)
 	}
+}
+
+func pingHandler(res http.ResponseWriter, req *http.Request) {
+	if pgstorage.Ping(ServerConfig.DatabaseDSN) {
+		res.WriteHeader(http.StatusOK)
+		return
+	}
+	res.WriteHeader(http.StatusInternalServerError)
+}
+
+func bulkHandler(res http.ResponseWriter, req *http.Request) {
+	if val, ok := req.Header["Content-Type"]; !ok || val[0] != applicationJSONType {
+		http.Error(res, "Wrong Content-Type, use application/json!", http.StatusBadRequest)
+		return
+	}
+	metrics := models.MetricsSlice{}
+	data, err := io.ReadAll(req.Body)
+	defer func() { _ = req.Body.Close() }()
+	if err != nil {
+		http.Error(res, messageInternalServerError, http.StatusInternalServerError)
+		return
+	}
+
+	if err := easyjson.Unmarshal(data, &metrics); err != nil {
+		http.Error(res, "Wrong json provided.", http.StatusBadRequest)
+		return
+	}
+	Storage.BulkUpdate(metrics)
+	res.WriteHeader(http.StatusOK)
 }

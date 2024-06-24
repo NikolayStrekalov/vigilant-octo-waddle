@@ -41,7 +41,7 @@ func Compress(data []byte) []byte {
 func Test_appRouter(t *testing.T) {
 	_ = logger.InitLog()
 	r := appRouter()
-	Storage = memstorage.NewMemStorage(false, "")
+	Storage, _, _ = memstorage.NewMemStorage("", false, 300)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 	baseURL := ts.URL
@@ -77,7 +77,7 @@ func Test_appRouter(t *testing.T) {
 	assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
 	data, err = io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	assert.Equal(t, `{"id":"34","type":"gauge","value":74.092}`, string(Decompress(data)))
+	assert.JSONEq(t, `{"id":"34","type":"gauge","value":74.092}`, string(Decompress(data)))
 	_ = res.Body.Close()
 
 	data = Compress([]byte(`{"id":"34","type":"gauge"}`))
@@ -93,6 +93,6 @@ func Test_appRouter(t *testing.T) {
 	assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
 	data, err = io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	assert.Equal(t, `{"id":"34","type":"gauge","value":74.092}`, string(Decompress(data)))
+	assert.JSONEq(t, `{"id":"34","type":"gauge","value":74.092}`, string(Decompress(data)))
 	_ = res.Body.Close()
 }

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,9 +13,14 @@ import (
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
 	"github.com/mailru/easyjson"
+
+	"github.com/avast/retry-go/v4"
 )
 
 var ReportBaseURL = "http://localhost:8080/update/"
+var ReportBulkURL = "http://localhost:8080/updates/"
+
+const maxRequestAttempts = 4
 
 func sendStat(kind StatKind, name StatName, value string) {
 	path, err := url.JoinPath(ReportBaseURL, string(kind), string(name), value)
@@ -35,29 +41,36 @@ func sendStat(kind StatKind, name StatName, value string) {
 	}
 }
 
-func sendStatJSON(m *models.Metrics) {
+func sendStatJSON(m easyjson.Marshaler, toURL string) error {
 	data, err := easyjson.Marshal(m)
 	if err != nil {
-		fmt.Println("Fail to serialize metric.", err)
-		return
+		return fmt.Errorf("fail to serialize metric: %w", err)
 	}
 	gzData, err := Compress(data)
 	if err != nil {
-		fmt.Println("Compress error:", err)
-		return
+		return fmt.Errorf("compress error: %w", err)
 	}
-	req, err := http.NewRequest(http.MethodPost, ReportBaseURL, bytes.NewReader(gzData))
+	req, err := http.NewRequest(http.MethodPost, toURL, bytes.NewReader(gzData))
 	if err != nil {
-		fmt.Println("Create request error:", err)
-		return
+		return fmt.Errorf("create request error: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 
-	resp, err := http.DefaultClient.Do(req)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(Config.ReportInterval))
+	defer cancel()
+	resp, err := retry.DoWithData(
+		func() (*http.Response, error) {
+			return http.DefaultClient.Do(req)
+		},
+		retry.Context(ctx),
+		retry.Attempts(maxRequestAttempts),
+		retry.DelayType(func(n uint, err error, config *retry.Config) time.Duration {
+			return time.Duration(1+n*2) * time.Second
+		}),
+	)
 	if err != nil {
-		fmt.Println("Post error:", err)
-		return
+		return fmt.Errorf("post error: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -65,19 +78,23 @@ func sendStatJSON(m *models.Metrics) {
 	if resp.StatusCode != http.StatusOK {
 		data, err := io.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Println("Response read error:", err)
-			return
+			return fmt.Errorf("response read error: %w", err)
 		}
-		fmt.Println(ReportBaseURL, "Wrong request code:", resp.StatusCode, string(data))
+		return fmt.Errorf("wrong response code: %d, data: %s", resp.StatusCode, string(data))
 	}
+	return nil
 }
 
 func reportStats() {
 	var err error
+	ticker := time.NewTicker(time.Duration(Config.ReportInterval) * time.Second)
+	defer ticker.Stop()
 	for {
+		<-ticker.C
 		statMutex.Lock()
 		runtime.ReadMemStats(&RuntimeStats)
 		r := reflect.ValueOf(RuntimeStats)
+		metrics := models.MetricsSlice{}
 		for _, statName := range runtimeStatList {
 			f := reflect.Indirect(r).FieldByName(string(statName))
 
@@ -89,8 +106,7 @@ func reportStats() {
 			if *runtimeMetrics.Value, err = getFloatStat(f); err != nil {
 				fmt.Println(err)
 			}
-
-			go sendStatJSON(&runtimeMetrics)
+			metrics = append(metrics, runtimeMetrics)
 		}
 		randomMetrics := models.Metrics{
 			ID:    string(statRandomValue),
@@ -98,17 +114,23 @@ func reportStats() {
 			Value: new(float64),
 		}
 		*randomMetrics.Value = RandomValue
-		go sendStatJSON(&randomMetrics)
+		metrics = append(metrics, randomMetrics)
 		pollMetrics := models.Metrics{
 			ID:    string(statPollCount),
 			MType: "counter",
 			Delta: new(int64),
 		}
-		*pollMetrics.Delta = int64(PollCount)
-		go sendStatJSON(&pollMetrics)
+		*pollMetrics.Delta = PollCount
+		metrics = append(metrics, pollMetrics)
 		PollCount = 0
 		statMutex.Unlock()
 
-		time.Sleep(time.Duration(Config.ReportInterval) * time.Second)
+		err := sendStatJSON(metrics, ReportBulkURL)
+		if err != nil {
+			fmt.Println(err)
+			statMutex.Lock()
+			PollCount += *pollMetrics.Delta
+			statMutex.Unlock()
+		}
 	}
 }

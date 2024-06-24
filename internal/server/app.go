@@ -4,22 +4,19 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"time"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/memstorage"
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/pgstorage"
 
 	chi "github.com/go-chi/chi/v5"
 )
 
-const defaultStoreInterval = 300 // seconds
-
 func Start() {
+	var err error
 	// Инициализируем логирование
 	lgr := logger.InitLog()
 	defer func() {
@@ -32,24 +29,34 @@ func Start() {
 		flag.PrintDefaults()
 		panic(err)
 	}
-	Storage = memstorage.NewMemStorage(ServerConfig.IsSyncDump(), ServerConfig.FileStoragePath)
-
-	// Восстанавливаем данные
-	if ServerConfig.RestoreStore {
-		Storage.Restore()
+	var storageClose func() error
+	if ServerConfig.DatabaseDSN == "" {
+		Storage, storageClose, err = memstorage.NewMemStorage(
+			ServerConfig.FileStoragePath,
+			ServerConfig.RestoreStore,
+			ServerConfig.StoreInterval,
+		)
+	} else {
+		// TODO: повторная инициализация при недоступности базы
+		Storage, storageClose, err = pgstorage.NewPGStorage(
+			ServerConfig.DatabaseDSN,
+		)
 	}
-	// Периодически сохраняем данные
-	if ServerConfig.DumpEnabled() && ServerConfig.StoreInterval > 0 {
-		go periodicDump()
+	if err != nil {
+		logger.Info("error creating storage:", err)
 	}
+	defer func() {
+		if storageClose != nil {
+			_ = storageClose()
+		}
+	}()
 
-	// При выходе сохраняем данные
+	// Дожидаемся выхода из этой функции
 	var server *http.Server
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
-		Storage.Dump()
 		err := server.Shutdown(context.Background())
 		if err != nil {
 			panic(err)
@@ -58,7 +65,7 @@ func Start() {
 
 	// Запускаем сервер
 	server = &http.Server{Addr: ServerConfig.Address, Handler: r}
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
@@ -70,59 +77,4 @@ func appRouter() *chi.Mux {
 	r.Use(gzipMiddleware)
 	prepareRoutes(r)
 	return r
-}
-
-func fillConfig() error {
-	flag.StringVar(&ServerConfig.Address, "a", "localhost:8080", "Эндпоинт сервера HOST:PORT")
-	flag.IntVar(
-		&ServerConfig.StoreInterval,
-		"i",
-		defaultStoreInterval,
-		"Интервал времени сохранения текущих значений (0 - синхронная запись)",
-	)
-	flag.StringVar(
-		&ServerConfig.FileStoragePath,
-		"f",
-		"/tmp/metrics-db.json",
-		"Полное имя файла, куда сохраняются текущие значения",
-	)
-	flag.BoolVar(
-		&ServerConfig.RestoreStore,
-		"r",
-		true,
-		"Загружать или нет ранее сохранённые значения из указанного файла",
-	)
-	flag.Parse()
-	if len(flag.Args()) > 0 {
-		return errors.New("too many args")
-	}
-
-	if envAddress := os.Getenv("ADDRESS"); envAddress != "" {
-		ServerConfig.Address = envAddress
-	}
-	if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
-		value, err := strconv.Atoi(envStoreInterval)
-		if err != nil {
-			return fmt.Errorf("can't parse STORE_INTERVAL: %w", err)
-		}
-		ServerConfig.StoreInterval = value
-	}
-	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
-		ServerConfig.FileStoragePath = envFileStoragePath
-	}
-	if envRestoreStore := os.Getenv("RESTORE"); envRestoreStore != "" {
-		value, err := strconv.ParseBool(envRestoreStore)
-		if err != nil {
-			return fmt.Errorf("can't parse RESTORE: %w", err)
-		}
-		ServerConfig.RestoreStore = value
-	}
-	return nil
-}
-
-func periodicDump() {
-	for {
-		time.Sleep(time.Duration(ServerConfig.StoreInterval) * time.Second)
-		Storage.Dump()
-	}
 }

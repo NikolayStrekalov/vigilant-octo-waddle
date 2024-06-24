@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/logger"
+	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
 	"github.com/mailru/easyjson"
 )
 
@@ -14,33 +16,58 @@ const dumpFilePermissions = 0o600
 
 //easyjson:json
 type MemStorage struct {
-	Gauge      map[string]float64
-	Counter    map[string]int64
-	muxGauge   *sync.RWMutex
-	muxCounter *sync.RWMutex
-	dumpFile   string
-	sync       bool
+	Gauge         map[string]float64
+	Counter       map[string]int64
+	muxGauge      *sync.RWMutex
+	muxCounter    *sync.RWMutex
+	dumpFile      string
+	sync          bool
+	storeInterval time.Duration
 }
 
 var errNotFound = errors.New("not found")
+
+const (
+	gaugeKind   = "gauge"
+	counterKind = "counter"
+)
 
 type GaugeListItem = struct {
 	Name  string
 	Value float64
 }
 
-func NewMemStorage(synchronous bool, dumpPath string) *MemStorage {
-	return &MemStorage{
-		Gauge:      make(map[string]float64),
-		Counter:    make(map[string]int64),
-		muxGauge:   &sync.RWMutex{},
-		muxCounter: &sync.RWMutex{},
-		sync:       synchronous,
-		dumpFile:   dumpPath,
-	}
+type MetricsSlice = []struct {
+	Delta *int64
+	Value *float64
+	ID    string
+	MType string
 }
 
-func (m MemStorage) GetGaugeList() []GaugeListItem {
+func NewMemStorage(dumpPath string, restore bool, storeInterval int) (*MemStorage, func() error, error) {
+	storage := MemStorage{
+		Gauge:         make(map[string]float64),
+		Counter:       make(map[string]int64),
+		muxGauge:      &sync.RWMutex{},
+		muxCounter:    &sync.RWMutex{},
+		sync:          dumpPath != "" && storeInterval == 0,
+		dumpFile:      dumpPath,
+		storeInterval: time.Duration(storeInterval) * time.Second,
+	}
+	if restore {
+		storage.restore()
+	}
+	if dumpPath != "" && storeInterval > 0 {
+		go storage.periodicDump()
+	}
+	var closeStorage = func() error {
+		storage.dump()
+		return nil
+	}
+	return &storage, closeStorage, nil
+}
+
+func (m *MemStorage) GetGaugeList() []GaugeListItem {
 	m.muxGauge.RLock()
 	defer m.muxGauge.RUnlock()
 	items := make([]GaugeListItem, 0, len(m.Gauge))
@@ -55,7 +82,7 @@ type CounterListItem = struct {
 	Value int64
 }
 
-func (m MemStorage) GetCounterList() []CounterListItem {
+func (m *MemStorage) GetCounterList() []CounterListItem {
 	m.muxCounter.RLock()
 	defer m.muxCounter.RUnlock()
 	items := make([]CounterListItem, 0, len(m.Counter))
@@ -65,7 +92,7 @@ func (m MemStorage) GetCounterList() []CounterListItem {
 	return items
 }
 
-func (m MemStorage) GetGauge(name string) (float64, error) {
+func (m *MemStorage) GetGauge(name string) (float64, error) {
 	m.muxGauge.RLock()
 	defer m.muxGauge.RUnlock()
 	if v, ok := m.Gauge[name]; ok {
@@ -74,7 +101,7 @@ func (m MemStorage) GetGauge(name string) (float64, error) {
 	return 0, errNotFound
 }
 
-func (m MemStorage) GetCounter(name string) (int64, error) {
+func (m *MemStorage) GetCounter(name string) (int64, error) {
 	m.muxCounter.RLock()
 	defer m.muxCounter.RUnlock()
 	if v, ok := m.Counter[name]; ok {
@@ -83,25 +110,52 @@ func (m MemStorage) GetCounter(name string) (int64, error) {
 	return 0, errNotFound
 }
 
-func (m MemStorage) UpdateGauge(name string, value float64) {
+func (m *MemStorage) UpdateGauge(name string, value float64) {
 	m.muxGauge.Lock()
 	m.Gauge[name] = value
 	m.muxGauge.Unlock()
 	if m.sync {
-		m.Dump()
+		m.dump()
 	}
 }
 
-func (m MemStorage) IncrementCounter(name string, value int64) {
+func (m *MemStorage) IncrementCounter(name string, value int64) {
 	m.muxCounter.Lock()
 	m.Counter[name] += value
 	m.muxCounter.Unlock()
 	if m.sync {
-		m.Dump()
+		m.dump()
 	}
 }
 
-func (m MemStorage) Dump() {
+func (m *MemStorage) BulkUpdate(metrics models.MetricsSlice) {
+	m.muxCounter.Lock()
+	m.muxGauge.Lock()
+	for _, metric := range metrics {
+		switch metric.MType {
+		case counterKind:
+			if metric.Delta == nil {
+				continue
+			}
+			m.Counter[metric.ID] += *metric.Delta
+
+		case gaugeKind:
+			if metric.Value == nil {
+				continue
+			}
+			m.Gauge[metric.ID] = *metric.Value
+		default:
+			continue
+		}
+	}
+	m.muxGauge.Unlock()
+	m.muxCounter.Unlock()
+	if m.sync {
+		m.dump()
+	}
+}
+
+func (m *MemStorage) dump() {
 	if m.dumpFile == "" {
 		return
 	}
@@ -123,11 +177,10 @@ func (m MemStorage) Dump() {
 	}
 }
 
-func (m *MemStorage) Restore() {
+func (m *MemStorage) restore() {
 	if m.dumpFile == "" {
 		return
 	}
-	// FIXME: deadlocks with update operations; current use case is safe
 	m.muxCounter.Lock()
 	m.muxGauge.Lock()
 	defer func() {
@@ -146,7 +199,14 @@ func (m *MemStorage) Restore() {
 	}
 }
 
-func (m MemStorage) Log() {
+func (m *MemStorage) periodicDump() {
+	for {
+		time.Sleep(m.storeInterval)
+		m.dump()
+	}
+}
+
+func (m *MemStorage) Log() {
 	m.muxGauge.RLock()
 	fmt.Println(m.Gauge)
 	m.muxGauge.RUnlock()
