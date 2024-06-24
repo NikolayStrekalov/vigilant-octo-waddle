@@ -88,6 +88,7 @@ func sendStatJSON(m easyjson.Marshaler, toURL string) error {
 func reportStats() {
 	var err error
 	ticker := time.NewTicker(time.Duration(Config.ReportInterval) * time.Second)
+	defer ticker.Stop()
 	for {
 		<-ticker.C
 		statMutex.Lock()
