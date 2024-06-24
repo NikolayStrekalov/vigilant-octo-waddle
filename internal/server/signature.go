@@ -62,7 +62,6 @@ func shaMiddlewareBuilder(key string) func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hashHeader := r.Header.Get("Hash")
 			supportsSigning := (hashHeader != "none" && hashHeader != "")
-			logger.Info("Hash header:", hashHeader, supportsSigning)
 			sw := w
 
 			if supportsSigning {

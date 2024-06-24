@@ -83,6 +83,7 @@ var RuntimeStats = runtime.MemStats{}
 var PollCount int64
 var RandomValue float64
 var errStatValueConversion = errors.New("can not convert to float64")
+var GopsutilStats sync.Map
 
 func getFloatStat(stat reflect.Value) (float64, error) {
 	switch stat.Kind() {

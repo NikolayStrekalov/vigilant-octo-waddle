@@ -10,6 +10,7 @@ var exitCodeMisconfigured = 3
 func Start() {
 	setupConfig()
 	go collectStats()
+	go collectGopsutilStats()
 	go reportStats()
 	runtime.Goexit()
 }

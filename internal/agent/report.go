@@ -65,13 +65,19 @@ func sendStatJSON(m easyjson.Marshaler, toURL string) error {
 		req.Header.Set("Hashsha256", signature)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(Config.ReportInterval))
-	defer cancel()
 	resp, err := retry.DoWithData(
 		func() (*http.Response, error) {
-			return http.DefaultClient.Do(req)
+			err := RequestLimiter.Acquire(context.Background(), 1)
+			if err != nil {
+				return nil, fmt.Errorf("request limiter error: %w", err)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			RequestLimiter.Release(1)
+			if err != nil {
+				return resp, fmt.Errorf("request error: %w", err)
+			}
+			return resp, nil
 		},
-		retry.Context(ctx),
 		retry.Attempts(maxRequestAttempts),
 		retry.DelayType(func(n uint, err error, config *retry.Config) time.Duration {
 			return time.Duration(1+n*2) * time.Second
@@ -133,12 +139,28 @@ func reportStats() {
 		PollCount = 0
 		statMutex.Unlock()
 
-		err := sendStatJSON(metrics, ReportBulkURL)
-		if err != nil {
-			fmt.Println(err)
-			statMutex.Lock()
-			PollCount += *pollMetrics.Delta
-			statMutex.Unlock()
-		}
+		var metric models.Metrics
+		GopsutilStats.Range(func(key, value interface{}) bool {
+			keyStr, _ := key.(string)
+			valueFloat, _ := value.(float64)
+			metric = models.Metrics{
+				ID:    keyStr,
+				MType: "gauge",
+				Value: new(float64),
+			}
+			*metric.Value = valueFloat
+			metrics = append(metrics, metric)
+			return true
+		})
+
+		go func() {
+			err := sendStatJSON(metrics, ReportBulkURL)
+			if err != nil {
+				fmt.Println(err)
+				statMutex.Lock()
+				PollCount += *pollMetrics.Delta
+				statMutex.Unlock()
+			}
+		}()
 	}
 }
