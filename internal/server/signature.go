@@ -60,41 +60,48 @@ func (s *shaWriter) Close() error {
 func shaMiddlewareBuilder(key string) func(h http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// проверяем подпись
-			sentSignature := r.Header.Get("Hashsha256")
-			body, err := io.ReadAll(r.Body)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				logger.Info(fmt.Errorf("error reading body: %w", err))
-				return
-			}
-			err = r.Body.Close()
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				logger.Info(fmt.Errorf("error closing body: %w", err))
-				return
-			}
-			r.Body = io.NopCloser(bytes.NewBuffer(body))
-			expectedSignature, err := sign.Sign(body, key)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				logger.Info(fmt.Errorf("error signing: %w", err))
-				return
-			}
-			if sentSignature != expectedSignature {
-				w.WriteHeader(http.StatusBadRequest)
-				_, err = w.Write([]byte("wrong signature"))
-				if err != nil {
-					logger.Info(fmt.Errorf("error writing response: %w", err))
-				}
-				return
-			}
+			hashHeader := r.Header.Get("Hash")
+			supportsSigning := (hashHeader != "none" && hashHeader != "")
+			logger.Info("Hash header:", hashHeader, supportsSigning)
+			sw := w
 
-			// подписываем тело при закрытии
-			sw := newSignatureWriter(w, key)
-			defer func() {
-				_ = sw.Close()
-			}()
+			if supportsSigning {
+				// проверяем подпись
+				sentSignature := r.Header.Get("Hashsha256")
+				body, err := io.ReadAll(r.Body)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					logger.Info(fmt.Errorf("error reading body: %w", err))
+					return
+				}
+				err = r.Body.Close()
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					logger.Info(fmt.Errorf("error closing body: %w", err))
+					return
+				}
+				r.Body = io.NopCloser(bytes.NewBuffer(body))
+				expectedSignature, err := sign.Sign(body, key)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					logger.Info(fmt.Errorf("error signing: %w", err))
+					return
+				}
+				if sentSignature != expectedSignature {
+					w.WriteHeader(http.StatusBadRequest)
+					_, err = w.Write([]byte("wrong signature"))
+					if err != nil {
+						logger.Info(fmt.Errorf("error writing response: %w", err))
+					}
+					return
+				}
+
+				// подписываем тело при закрытии
+				sw := newSignatureWriter(w, key)
+				defer func() {
+					_ = sw.Close()
+				}()
+			}
 			next.ServeHTTP(sw, r)
 		})
 	}
