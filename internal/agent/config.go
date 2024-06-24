@@ -72,6 +72,14 @@ func setupConfig() {
 	if envSignKey := os.Getenv("KEY"); envSignKey != "" {
 		Config.SignKey = envSignKey
 	}
+	if rateLimit := os.Getenv("RATE_LIMIT"); rateLimit != "" {
+		val, err := strconv.Atoi(rateLimit)
+		if err != nil || val < 0 {
+			fmt.Println("wrong RATE_LIMIT value")
+			os.Exit(exitCodeMisconfigured)
+		}
+		Config.RateLimit = uint(val)
+	}
 
 	ReportBaseURL = fmt.Sprintf("http://%s/update/", Config.ServerAddress)
 	ReportBulkURL = fmt.Sprintf("http://%s/updates/", Config.ServerAddress)
