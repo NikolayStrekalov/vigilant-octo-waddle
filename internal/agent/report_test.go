@@ -11,6 +11,7 @@ import (
 
 	"github.com/NikolayStrekalov/vigilant-octo-waddle.git/internal/models"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sync/semaphore"
 )
 
 func Test_sendStat(t *testing.T) {
@@ -100,6 +101,7 @@ func Test_sendStatJSON(t *testing.T) {
 	}))
 	defer ts.Close()
 	ReportBaseURL = ts.URL
+	RequestLimiter = semaphore.NewWeighted(1)
 	for _, tt := range tests {
 		_ = sendStatJSON(tt.args.m, ReportBaseURL)
 		assert.Equal(t, "application/json", contentTypeHeader)
